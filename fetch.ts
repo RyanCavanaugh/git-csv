@@ -91,7 +91,8 @@ function reduceIssues(issues: Issue[]): MinimalIssue[] {
 			number: i.number,
 			state: i.state,
 			title: i.title,
-			updatedAt: Date.parse(i.updated_at)
+			updatedAt: Date.parse(i.updated_at),
+			isPullRequest: i.pull_request !== undefined
 		};
 	}
 
@@ -124,11 +125,9 @@ githubRequest('rate_limit', undefined, undefined, undefined, {}, undefined, rate
 });
 
 function main() {
-	/*
 	fetchIssues(issues => {
 		fs.writeFileSync('issues.json', JSON.stringify(reduceIssues(issues)), 'utf-8');
 	});
-	*/
 	fetchStars(stars => {
 		const csv = stars
 			.map(st => ({ user: st.user.login, date: (new Date(st.starred_at).toLocaleDateString())}))

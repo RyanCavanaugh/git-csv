@@ -12,6 +12,7 @@ interface SimplifiedIssue {
 	updatedAt: number;
 	loggedByName: string;
 	comments: number;
+	isPullRequest: boolean;
 }
 
 function simplify(i: Issue): MinimalIssue {
@@ -21,17 +22,18 @@ function simplify(i: Issue): MinimalIssue {
 		comments: i.comments,
 		createdAt: Date.parse(i.created_at),
 		labels: i.labels,
-		loggedByAvatar: i.user.avatar_url,
-		loggedByName: i.user.login,
+		loggedByAvatar: i.user ? i.user.avatar_url : '(missing)',
+		loggedByName: i.user ? i.user.login : '(missing)',
 		milestone: i.milestone ? i.milestone.title : '',
 		number: i.number,
 		state: i.state,
 		title: i.title,
-		updatedAt: Date.parse(i.updated_at)
+		updatedAt: Date.parse(i.updated_at),
+		isPullRequest: i.pull_request !== undefined
 	};
 }
 
-let data: SimplifiedIssue[] = JSON.parse(fs.readFileSync('issues.json', 'utf-8')).filter(issue => (issue['pull_request'] === undefined)).map(simplify);
+let data: SimplifiedIssue[] = JSON.parse(fs.readFileSync('issues.json', 'utf-8')).filter(issue => (issue['pull_request'] === undefined));
 
 data.sort((lhs, rhs) => rhs.createdAt - lhs.createdAt);
 
@@ -44,7 +46,7 @@ for(const issue of data) {
 }
 
 const headers: string[] = [];
-headers.push('Number', 'Title', 'State', 'Comments', 'Creator', 'Assignee', 'Created', 'Updated', 'Created-Month', 'Created-Year', 'Had-Template', 'Best-Label')
+headers.push('Number', 'Kind', 'Title', 'State', 'Comments', 'Creator', 'Assignee', 'Created', 'Updated', 'Created-Month', 'Created-Year', 'Had-Template', 'Best-Label')
 for(const label of Object.keys(labels)) {
 	headers.push(label);
 	headers.push('Is ' + label);
@@ -71,6 +73,7 @@ for(const issue of data) {
 	const createdMonthString = created.getFullYear() + '-' + ((createdMonth < 10) ? '0' : '') + createdMonth;
 	const cols: string[] = [
 		issue.number.toString(),
+		issue.isPullRequest ? 'TRUE' : 'FALSE',
 		'"' + issue.title.replace(/"/g, "'") + '"',
 		issue.state,
 		issue.comments.toString(),

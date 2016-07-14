@@ -29,6 +29,8 @@ interface Issue {
 	comments: number;
 	fetchedComments: Comment[];
 	body: string;
+
+	pull_request?: {};
 }
 
 interface MinimalIssue {
@@ -48,4 +50,6 @@ interface MinimalIssue {
 	createdAt: number;
 	updatedAt: number;
 	labels: { name: string; color: string; }[];
+
+	isPullRequest: boolean;
 }
