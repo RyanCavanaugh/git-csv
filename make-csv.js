@@ -1,96 +1,138 @@
 "use strict";
 var fs = require('fs');
-function simplify(i) {
-    return {
-        assignedTo: i.assignee ? i.assignee.login : '',
-        body: i.body.substr(0, 250),
-        comments: i.comments,
-        createdAt: Date.parse(i.created_at),
-        labels: i.labels,
-        loggedByAvatar: i.user.avatar_url,
-        loggedByName: i.user.login,
-        milestone: i.milestone ? i.milestone.title : '',
-        number: i.number,
-        state: i.state,
-        title: i.title,
-        updatedAt: Date.parse(i.updated_at)
-    };
+var path = require('path');
+function timestampToDate(s) {
+    return new Date(s).toLocaleDateString();
 }
-var data = JSON.parse(fs.readFileSync('issues.json', 'utf-8')).filter(function (issue) { return (issue['pull_request'] === undefined); }).map(simplify);
-data.sort(function (lhs, rhs) { return rhs.createdAt - lhs.createdAt; });
-// Collect all the label names
-var labels = {};
-for (var _i = 0, data_1 = data; _i < data_1.length; _i++) {
-    var issue = data_1[_i];
-    for (var _a = 0, _b = issue.labels; _a < _b.length; _a++) {
-        var label = _b[_a];
-        labels[label.name] = label.name;
+var CSV = (function () {
+    function CSV() {
+        this.colNames = [];
+        this.producers = [];
     }
-}
-var headers = [];
-headers.push('Number', 'Title', 'State', 'Comments', 'Creator', 'Assignee', 'Created', 'Updated', 'Created-Month', 'Created-Year', 'Had-Template', 'Best-Label');
-for (var _c = 0, _d = Object.keys(labels); _c < _d.length; _c++) {
-    var label = _d[_c];
-    headers.push(label);
-    headers.push('Is ' + label);
-}
-var labelPriority = [
-    'Bug',
-    'Suggestion',
-    'Question',
-    'By Design',
-    'Duplicate',
-    'External',
-    'Needs More Info',
-    'Website Logo',
-    'Discussion',
-    'Docs',
-    'Other'
+    CSV.prototype.addColumn = function (name, funcOrKey) {
+        this.colNames.push(name);
+        this.producers.push(funcOrKey);
+    };
+    CSV.quote = function (s) {
+        return '"' + s.replace(/"/g, "'").replace(/^--/, ' --') + '"';
+    };
+    CSV.prototype.generate = function (arr) {
+        var _this = this;
+        var result = [];
+        result.push(this.colNames.join(','));
+        arr.forEach(function (entry) {
+            var cells = [];
+            _this.producers.forEach(function (key) {
+                if (typeof key === 'string') {
+                    cells.push(entry[key]);
+                }
+                else {
+                    cells.push(key(entry));
+                }
+            });
+            result.push(cells.map(CSV.quote).join(','));
+        });
+        return result;
+    };
+    return CSV;
+}());
+var LabelSynonyms = {
+    "Working as Intended": "By Design",
+    "Design Limitation": "By Design",
+    "Too Complex": "Declined",
+    "Out of Scope": "Declined",
+    "Migrate-a-thon": "Misc"
+};
+var LabelPriority = [
+    "Misc",
+    "Website Logo",
+    "Design Notes",
+    "Duplicate",
+    "Fixed",
+    "By Design",
+    "Declined",
+    "Won't Fix",
+    "Accepting PRs",
+    "External",
+    "Question",
+    "Bug",
+    "Suggestion",
+    "Needs Proposal",
+    "Needs More Info",
+    "Awaiting More Feedback",
+    "In Discussion",
+    "Docs",
+    "Discussion",
+    "Infrastructure",
+    "Spec"
 ];
-var rows = [headers.join(',')];
-for (var _e = 0, data_2 = data; _e < data_2.length; _e++) {
-    var issue = data_2[_e];
-    var created = new Date(issue.createdAt);
-    var createdMonth = created.getMonth() + 1;
-    var createdMonthString = created.getFullYear() + '-' + ((createdMonth < 10) ? '0' : '') + createdMonth;
-    var cols = [
-        issue.number.toString(),
-        '"' + issue.title.replace(/"/g, "'") + '"',
-        issue.state,
-        issue.comments.toString(),
-        issue.loggedByName,
-        issue.assignedTo,
-        created.toLocaleDateString(),
-        new Date(issue.updatedAt).toLocaleDateString(),
-        createdMonthString,
-        created.getFullYear().toString(),
-        issue.createdAt > Date.parse('Feb 17, 2016 11:41:00 AM PST') ? 'TRUE' : 'FALSE'
-    ];
-    var bestLabel = 'Other';
-    var _loop_1 = function(label) {
-        if (issue.labels.some(function (lab) { return lab.name === label; })) {
-            bestLabel = label;
+function bestLabel(issue) {
+    var realLabels = issue.labels.map(function (lbl) {
+        return LabelSynonyms[lbl] || lbl;
+    });
+    for (var _i = 0, LabelPriority_1 = LabelPriority; _i < LabelPriority_1.length; _i++) {
+        var lbl = LabelPriority_1[_i];
+        if (realLabels.indexOf(lbl) >= 0) {
+            return lbl;
         }
-    };
-    for (var _f = 0, labelPriority_1 = labelPriority; _f < labelPriority_1.length; _f++) {
-        var label = labelPriority_1[_f];
-        _loop_1(label);
     }
-    cols.push(bestLabel);
-    var _loop_2 = function(label) {
-        if (issue.labels.some(function (lab) { return lab.name === label; })) {
-            cols.push('true');
-            cols.push('1');
-        }
-        else {
-            cols.push('false');
-            cols.push('0');
-        }
-    };
-    for (var _g = 0, _h = Object.keys(labels); _g < _h.length; _g++) {
-        var label = _h[_g];
-        _loop_2(label);
-    }
-    rows.push(cols.join(','));
+    return undefined;
 }
-fs.writeFile('issues.csv', rows.join('\r\n'));
+function merge(base, extras) {
+    Object.keys(base).forEach(function (k) { return extras[k] = base[k]; });
+    return extras;
+}
+function getActivityRecords(issue) {
+    var result = [];
+    var base = {
+        issueId: issue.issue.number,
+        pullRequest: issue.issue.pull_request
+    };
+    issue.comments.forEach(function (comment) {
+        result.push(merge(base, {
+            activity: "comment",
+            actor: comment.user.login,
+            date: new Date(comment.created_at),
+            length: comment.body.length
+        }));
+    });
+    issue.events.forEach(function (event) {
+        result.push(merge(base, {
+            activity: event.event,
+            actor: event.actor ? event.actor.login : '(none)',
+            date: new Date(event.created_at),
+            length: 0
+        }));
+    });
+    result.push(merge(base, {
+        activity: 'created',
+        actor: issue.issue.created_by || '(none)',
+        date: new Date(issue.issue.created_at),
+        length: 0
+    }));
+    return result;
+}
+var data = JSON.parse(fs.readFileSync('issue-index.json', 'utf-8'));
+var issues = new CSV();
+issues.addColumn('Issue ID', function (i) { return i.number.toString(); });
+issues.addColumn('Title', function (i) { return i.title; });
+issues.addColumn('Created Date', function (i) { return timestampToDate(i.created_at); });
+issues.addColumn('Created By', function (i) { return i.created_by || '(none)'; });
+issues.addColumn('Type', function (i) { return i.pull_request ? "PR" : "Issue"; });
+issues.addColumn('State', function (i) { return i.state; });
+issues.addColumn('Label', function (i) { return i.pull_request ? "PR" : (bestLabel(i) || (i.state === 'closed' ? 'Closed' : 'Unlabeled')); });
+fs.writeFile('issues.csv', issues.generate(data).join('\r\n'), 'utf-8');
+var activity = new CSV();
+activity.addColumn('Issue ID', function (i) { return i.issueId.toString(); });
+activity.addColumn('Type', function (i) { return i.pullRequest ? "PR" : "Issue"; });
+activity.addColumn('Activity', function (i) { return i.activity; });
+activity.addColumn('User', function (i) { return i.actor; });
+activity.addColumn('Date', function (i) { return i.date.toLocaleDateString(); });
+activity.addColumn('Length', function (i) { return i.length.toString(); });
+var activities = [];
+data.forEach(function (issue) {
+    var file = path.join(__dirname, 'data', issue.number + ".json");
+    var fileData = JSON.parse(fs.readFileSync(file, 'utf-8'));
+    getActivityRecords(fileData).forEach(function (rec) { return activities.push(rec); });
+});
+fs.writeFile('activity.csv', activity.generate(activities).join('\r\n'), 'utf-8');

@@ -1,55 +1,22 @@
-// Not complete
-interface User {
-	login: string;
-	avatar_url: string;
-}
-interface Comment {
-	user: User;
-	created_at: string;
-	updated_at: string;
-	body: string;
-}
-interface Issue {
+
+interface MinimalIssue {
 	id: number;
 	number: number;
 	title: string;
-	user: User;
-	labels: {
-		name: string;
-		color: string;
-	}[];
+	labels: string[];
 	state: string;
-	assignee: User;
-	milestone: {
-		title: string;
-	}
+	pull_request: boolean;
 	created_at: string;
+	created_by: string | undefined;
 	updated_at: string;
-	closed_at: string;
-	comments: number;
-	fetchedComments: Comment[];
-	body: string;
-
-	pull_request?: {};
+	closed_at: string | null;
+	assignees: string[];
+	body_length: number;
 }
 
-interface MinimalIssue {
-	number: number;
-	title: string;
-	body: string;
-	
-	loggedByName: string;
-	loggedByAvatar: string;
-	assignedTo: string;
-
-	comments: number;
-
-	state: string;
-	milestone: string;
-
-	createdAt: number;
-	updatedAt: number;
-	labels: { name: string; color: string; }[];
-
-	isPullRequest: boolean;
+interface StoredIssue {
+	fetchTimestamp: number;
+	issue: MinimalIssue;
+	comments: GitHubAPI.IssueComment[];
+	events: GitHubAPI.IssueEvent[];
 }

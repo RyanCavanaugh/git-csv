@@ -1,111 +1,163 @@
 import fs = require('fs');
+import path = require('path');
 
-interface SimplifiedIssue {
-	assignedTo: string;
-	title: string;
-	state: string;
-	number: number;
-	labels: {
-		name: string;
-	}[];
-	createdAt: number;
-	updatedAt: number;
-	loggedByName: string;
-	comments: number;
-	isPullRequest: boolean;
+type ColumnValueMaker<T> = string | ((x: T) => string);
+
+function timestampToDate(s: string): string {
+	return new Date(s).toLocaleDateString();
 }
 
-function simplify(i: Issue): MinimalIssue {
-	return {
-		assignedTo: i.assignee ? i.assignee.login : '',
-		body: i.body.substr(0, 250),
-		comments: i.comments,
-		createdAt: Date.parse(i.created_at),
-		labels: i.labels,
-		loggedByAvatar: i.user ? i.user.avatar_url : '(missing)',
-		loggedByName: i.user ? i.user.login : '(missing)',
-		milestone: i.milestone ? i.milestone.title : '',
-		number: i.number,
-		state: i.state,
-		title: i.title,
-		updatedAt: Date.parse(i.updated_at),
-		isPullRequest: i.pull_request !== undefined
-	};
-}
+class CSV<T> {
+	colNames: string[] = [];
+	producers: ColumnValueMaker<T>[] = [];
 
-let data: SimplifiedIssue[] = JSON.parse(fs.readFileSync('issues.json', 'utf-8')).filter(issue => (issue['pull_request'] === undefined));
+	addColumn(name: string, funcOrKey: ColumnValueMaker<T>) {
+		this.colNames.push(name);
+		this.producers.push(funcOrKey);
+	}
 
-data.sort((lhs, rhs) => rhs.createdAt - lhs.createdAt);
+	private static quote(s: string): string {
+		return '"' + s.replace(/"/g, "'").replace(/^--/, ' --') + '"';
+	}
 
-// Collect all the label names
-const labels: { [name: string]: string } = {};
-for(const issue of data) {
-	for(const label of issue.labels) {
-		labels[label.name] = label.name;
+	generate(arr: T[]): string[] {
+		const result: string[] = [];
+
+		result.push(this.colNames.join(','));
+
+		arr.forEach((entry: any) => {
+			const cells: string[] = [];
+			this.producers.forEach(key => {
+				if (typeof key === 'string') {
+					cells.push(entry[key]);
+				} else {
+					cells.push(key(entry));
+				}
+			});
+
+			result.push(cells.map(CSV.quote).join(','));
+		});
+
+		return result;
 	}
 }
 
-const headers: string[] = [];
-headers.push('Number', 'Kind', 'Title', 'State', 'Comments', 'Creator', 'Assignee', 'Created', 'Updated', 'Created-Month', 'Created-Year', 'Had-Template', 'Best-Label')
-for(const label of Object.keys(labels)) {
-	headers.push(label);
-	headers.push('Is ' + label);
-}
+const LabelSynonyms: { [s: string]: string } = {
+	"Working as Intended": "By Design",
+	"Design Limitation": "By Design",
+	"Too Complex": "Declined",
+	"Out of Scope": "Declined",
+	"Migrate-a-thon": "Misc"
+};
 
-const labelPriority = [
-	'Bug',
-	'Suggestion',
-	'Question',
-	'By Design',
-	'Duplicate',
-	'External',
-	'Needs More Info',
-	'Website Logo',
-	'Discussion',
-	'Docs',
-	'Other'
+const LabelPriority = [
+	"Misc",
+	"Website Logo",
+	"Design Notes",
+	"Duplicate",
+	"Fixed",
+	"By Design",
+	"Declined",
+	"Won't Fix",
+	"Accepting PRs",
+	"External",
+	"Question",
+	"Bug",
+	"Suggestion",
+	"Needs Proposal",
+	"Needs More Info",
+	"Awaiting More Feedback",
+	"In Discussion",
+	"Docs",
+	"Discussion",
+	"Infrastructure",
+	"Spec"
 ];
 
-const rows: string[] = [headers.join(',')];
-for(const issue of data) {
-	const created = new Date(issue.createdAt);
-	const createdMonth = created.getMonth() + 1;
-	const createdMonthString = created.getFullYear() + '-' + ((createdMonth < 10) ? '0' : '') + createdMonth;
-	const cols: string[] = [
-		issue.number.toString(),
-		issue.isPullRequest ? 'TRUE' : 'FALSE',
-		'"' + issue.title.replace(/"/g, "'") + '"',
-		issue.state,
-		issue.comments.toString(),
-		issue.loggedByName,
-		issue.assignedTo,
-		created.toLocaleDateString(),
-		new Date(issue.updatedAt).toLocaleDateString(),
-		createdMonthString,
-		created.getFullYear().toString(),
-		issue.createdAt > Date.parse('Feb 17, 2016 11:41:00 AM PST') ? 'TRUE' : 'FALSE'
-	];
-
-	let bestLabel = 'Other';
-	for (const label of labelPriority) {
-		if (issue.labels.some(lab => lab.name === label)) {
-			bestLabel = label;
+function bestLabel(issue: MinimalIssue) {
+	const realLabels = issue.labels.map(lbl => {
+		return LabelSynonyms[lbl] || lbl;
+	});
+	for (const lbl of LabelPriority) {
+		if (realLabels.indexOf(lbl) >= 0) {
+			return lbl;
 		}
 	}
-	cols.push(bestLabel);
-
-	for(const label of Object.keys(labels)) {
-		if(issue.labels.some(lab => lab.name === label)) {
-			cols.push('true');
-			cols.push('1');
-		} else {
-			cols.push('false');
-			cols.push('0');
-		}
-	}
-
-	rows.push(cols.join(','));
+	return undefined;
 }
 
-fs.writeFile('issues.csv', rows.join('\r\n'));
+interface ActivityRecord {
+	issueId: number;
+	pullRequest: boolean;
+	activity: string;
+	actor: string;
+	date: Date;
+	length: number;
+}
+
+function merge<T, U>(base: T, extras: U): T & U;
+function merge(base: any, extras: any): any {
+	Object.keys(base).forEach(k => extras[k] = base[k]);
+	return extras;
+}
+
+function getActivityRecords(issue: StoredIssue) {
+	const result: ActivityRecord[] = [];
+	const base = {
+		issueId: issue.issue.number,
+		pullRequest: issue.issue.pull_request
+	};
+	issue.comments.forEach(comment => {
+		result.push(merge(base, {
+			activity: "comment",
+			actor: comment.user.login,
+			date: new Date(comment.created_at),
+			length: comment.body.length
+		}));
+	});
+	issue.events.forEach(event => {
+		result.push(merge(base, {
+			activity: event.event,
+			actor: event.actor ? event.actor.login : '(none)',
+			date: new Date(event.created_at),
+			length: 0
+		}));
+	})
+	result.push(merge(base, {
+		activity: 'created',
+		actor: issue.issue.created_by || '(none)',
+		date: new Date(issue.issue.created_at),
+		length: issue.issue.body_length || 0
+	}));
+	return result;
+}
+
+const data = <MinimalIssue[]>JSON.parse(fs.readFileSync('issue-index.json', 'utf-8'));
+
+const issues = new CSV<MinimalIssue>();
+issues.addColumn('Issue ID', i => i.number.toString());
+issues.addColumn('Title', i => i.title);
+issues.addColumn('Created Date', i => timestampToDate(i.created_at));
+issues.addColumn('Created By', i => i.created_by || '(none)');
+issues.addColumn('Type', i => i.pull_request ? "PR" : "Issue");
+issues.addColumn('State', i => i.state);
+issues.addColumn('Label', i => i.pull_request ? "PR" : (bestLabel(i) || (i.state === 'closed' ? 'Closed' : 'Unlabeled')));
+
+fs.writeFile('issues.csv', issues.generate(data).join('\r\n'), 'utf-8');
+
+const activity = new CSV<ActivityRecord>();
+activity.addColumn('Issue ID', i => i.issueId.toString());
+activity.addColumn('Type', i => i.pullRequest ? "PR" : "Issue");
+activity.addColumn('Activity', i => i.activity);
+activity.addColumn('User', i => i.actor);
+activity.addColumn('Date', i => i.date.toLocaleDateString());
+activity.addColumn('Length', i => i.length.toString());
+const activities: ActivityRecord[] = [];
+data.forEach(issue => {
+	const file = path.join(__dirname, 'data', `${issue.number}.json`);
+	const fileData = <StoredIssue>JSON.parse(fs.readFileSync(file, 'utf-8'));
+	getActivityRecords(fileData).forEach(rec => activities.push(rec));
+});
+
+fs.writeFile('activity.csv', activity.generate(activities).join('\r\n'), 'utf-8');
 

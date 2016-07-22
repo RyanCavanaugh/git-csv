@@ -1,12 +1,14 @@
 {
 	"compilerOptions": {
-		"module": "commonjs"
+		"module": "commonjs",
+		"strictNullChecks": true,
+		"noImplicitAny": true
 	},
 	"compileOnSave": true,
 	"files": [
 		"fetch.ts",
-		"make-csv.ts",
 		"types.d.ts",
+		"make-csv.ts",
 		"typings/tsd.d.ts"
 	]
 }
