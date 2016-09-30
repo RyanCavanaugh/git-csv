@@ -1,33 +1,16 @@
-/// <reference path="github.d.ts" />
-
 import fs = require('fs');
 import https = require('https');
 import path = require('path');
 
-const dataPath = path.join(__dirname, "data");
+const oath = require('../../search-auth.json');
 
-const oath = JSON.parse(fs.readFileSync('../search-auth.json', 'utf-8'));
+const dataPath = path.join(__dirname, "../data");
+const indexFilename = path.join(dataPath, 'issue-index.json');
+
 let rateLimit: number;
 
 interface Parameters {
 	[s: string]: string;
-}
-
-function minifyIssue(issue: GitHubAPI.Issue): MinimalIssue {
-	return {
-		id: issue.id,
-		number: issue.number,
-		title: issue.title,
-		labels: issue.labels.map(x => x.name),
-		state: issue.state,
-		pull_request: !!issue.pull_request,
-		created_at: issue.created_at,
-		created_by: issue.user.login,
-		updated_at: issue.updated_at,
-		closed_at: issue.closed_at,
-		assignees: issue.assignees.map(x => x.login),
-		body_length: issue.body.length
-	};
 }
 
 function githubRequest(prefix: string, owner: string | undefined, repo: string | undefined, path: string | undefined, params: Parameters, format: string | undefined, done: (data: string) => void) {
@@ -90,19 +73,19 @@ function getPagedData(prefix: string, owner: string, repo: string, path: string,
 	}
 }
 
-function fetchIssues(done: (data: MinimalIssue[]) => void) {
+function fetchIssues(done: (data: GitHubAPI.Issue[]) => void) {
 	let params: Parameters = {};
 	// Sort by issue 1, 2, 3, ... so that we don't have page overlap issues
 	params['sort'] = 'created';
 	params['direction'] = 'asc';
 	params['state'] = 'all';
 
-	getPagedData('repos', 'Microsoft', 'TypeScript', 'issues', params, undefined, 100, (data: MinimalIssue[]) => {
+	getPagedData('repos', 'Microsoft', 'TypeScript', 'issues', params, undefined, 100, (data: GitHubAPI.Issue[]) => {
 		done(data);
-	}, minifyIssue);
+	});
 }
 
-function getDataFilePath(issue: MinimalIssue) {
+function getDataFilePath(issue: GitHubAPI.Issue) {
 	return path.join(dataPath, `${issue.number}.json`);
 }
 
@@ -110,12 +93,14 @@ function parseTimestamp(t: string): number {
 	return +(new Date(t));
 }
 
-function fetchIssueData(issue: MinimalIssue, done: () => void) {
+function fetchIssueData(issue: GitHubAPI.Issue, done: () => void) {
 	const filename = getDataFilePath(issue);
 
 	fs.exists(filename, exists => {
 		if (exists) {
 			fs.readFile(filename, 'utf-8', (err, data) => {
+				if (err) throw err;
+				
 				const storedData: StoredIssue = JSON.parse(data);
 				if (storedData.fetchTimestamp >= parseTimestamp(issue.updated_at)) {
 					done();
@@ -149,7 +134,7 @@ function fetchIssueData(issue: MinimalIssue, done: () => void) {
 	}
 }
 
-function fetchIssuesData(data: MinimalIssue[]) {
+function fetchIssuesData(data: GitHubAPI.Issue[]) {
 	next();
 
 	function next() {
@@ -161,7 +146,6 @@ function fetchIssuesData(data: MinimalIssue[]) {
 }
 
 function main() {
-	const indexFilename = 'issue-index.json';
 	console.log('Fetch issue index');
 	fs.exists(indexFilename, exists => {
 		if (exists) {
@@ -175,6 +159,7 @@ function main() {
 				console.log('Downloading issue index');
 				fs.writeFile(indexFilename, JSON.stringify(issues, undefined!, 2), 'utf-8', err => {
 					if (err) throw err;
+					console.log('Fetch issues data');
 					fetchIssuesData(issues);
 				});
 			});

@@ -1,4 +1,2 @@
-*.js
-*.csv
 data/
-issue-index.json
+bin/

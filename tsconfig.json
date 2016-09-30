@@ -1,14 +1,22 @@
 {
-	"compilerOptions": {
-		"module": "commonjs",
-		"strictNullChecks": true,
-		"noImplicitAny": true
-	},
-	"compileOnSave": true,
-	"files": [
-		"fetch.ts",
-		"types.d.ts",
-		"make-csv.ts",
-		"typings/tsd.d.ts"
-	]
+    "compilerOptions": {
+        "module": "commonjs",
+        "target": "es5",
+        "sourceMap": false,
+
+        "outDir": "bin",
+
+        "noImplicitAny": true,
+        "strictNullChecks": true,
+        "noImplicitReturns": true,
+        "noEmitOnError": true,
+        "noImplicitThis": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true
+    },
+    "files": [
+        "src/fetch.ts",
+        "src/types.d.ts",
+        "src/github.d.ts"
+    ]
 }
