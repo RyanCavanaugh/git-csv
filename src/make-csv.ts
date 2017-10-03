@@ -1,6 +1,8 @@
 import fs = require('fs');
 import path = require('path');
 
+const dataDir = path.join(__dirname, '../data/');
+
 type ColumnValueMaker<T> = string | ((x: T) => string);
 
 function timestampToDate(s: string): string {
@@ -47,43 +49,62 @@ const LabelSynonyms: { [s: string]: string } = {
 	"Design Limitation": "By Design",
 	"Too Complex": "Declined",
 	"Out of Scope": "Declined",
-	"Migrate-a-thon": "Misc"
+	"Won't Fix": "Declined",
+	"Migrate-a-thon": "Docs",
+	"Discussion": "Other",
+	"Infrastructure": "Other"
 };
 
+// Earlier labels take priority over later labels
 const LabelPriority = [
+	"Duplicate",
+	"Bug",
+	"Question",
+	"By Design",
 	"Misc",
 	"Website Logo",
 	"Design Notes",
-	"Duplicate",
-	"Fixed",
-	"By Design",
-	"Declined",
-	"Won't Fix",
-	"Accepting PRs",
 	"External",
-	"Question",
-	"Bug",
+	"Declined",
 	"Suggestion",
-	"Needs Proposal",
 	"Needs More Info",
-	"Awaiting More Feedback",
-	"In Discussion",
 	"Docs",
-	"Discussion",
-	"Infrastructure",
-	"Spec"
+	"Spec",
+	"Other"
 ];
 
-function bestLabel(issue: MinimalIssue) {
+const BroadCategories: { [s: string]: string } = {
+	"Duplicate": "Noise",
+	"Bug": "Bug",
+	"Question": "Noise",
+	"By Design": "Noise",
+	"Misc": "Other",
+	"Website Logo": "Other",
+	"Design Notes": "Other",
+	"External": "Noise",
+	"Declined": "Suggestions",
+	"Suggestion": "Suggestions",
+	"Needs More Info": "Unactionable",
+	"Docs": "Bug",
+	"Spec": "Bug",
+	"Other": "Other",
+	"Untriaged": "Untriaged"
+}
+
+function bestLabel(issue: GitHubAPI.Issue) {
+	if (issue.pull_request) {
+		return "PR";
+	}
+
 	const realLabels = issue.labels.map(lbl => {
-		return LabelSynonyms[lbl] || lbl;
+		return LabelSynonyms[lbl.name] || lbl.name;
 	});
 	for (const lbl of LabelPriority) {
 		if (realLabels.indexOf(lbl) >= 0) {
 			return lbl;
 		}
 	}
-	return undefined;
+	return issue.state === 'closed' ? "External" : "Untriaged";
 }
 
 interface ActivityRecord {
@@ -105,45 +126,60 @@ function getActivityRecords(issue: StoredIssue) {
 	const result: ActivityRecord[] = [];
 	const base = {
 		issueId: issue.issue.number,
-		pullRequest: issue.issue.pull_request
+		pullRequest: !!issue.issue.pull_request
 	};
-	issue.comments.forEach(comment => {
-		result.push(merge(base, {
-			activity: "comment",
-			actor: comment.user.login,
-			date: new Date(comment.created_at),
-			length: comment.body.length
-		}));
-	});
-	issue.events.forEach(event => {
-		result.push(merge(base, {
-			activity: event.event,
-			actor: event.actor ? event.actor.login : '(none)',
-			date: new Date(event.created_at),
-			length: 0
-		}));
-	})
+
+	if (issue.comments) {
+		issue.comments.forEach(comment => {
+			result.push(merge(base, {
+				activity: "comment",
+				actor: comment.user ? comment.user.login : '(none)',
+				date: new Date(comment.created_at),
+				length: comment.body ? comment.body.length : 0
+			}));
+		});
+	}
+
+	if (issue.events) {
+		issue.events.forEach(event => {
+			result.push(merge(base, {
+				activity: event.event,
+				actor: event.actor ? event.actor.login : '(none)',
+				date: new Date(event.created_at),
+				length: 0
+			}));
+		});
+	}
+
 	result.push(merge(base, {
 		activity: 'created',
-		actor: issue.issue.created_by || '(none)',
+		actor: (issue.issue.user ? issue.issue.user.login : '(none)'),
 		date: new Date(issue.issue.created_at),
-		length: issue.issue.body_length || 0
+		length: issue.issue.body.length || 0
 	}));
+
 	return result;
 }
 
-const data = <MinimalIssue[]>JSON.parse(fs.readFileSync('issue-index.json', 'utf-8'));
+function getMonthCreated(i: GitHubAPI.Issue): string {
+	const date = new Date(timestampToDate(i.created_at));
+	return `${date.getFullYear()}-${("0" + (1 + date.getMonth())).slice(-2)}`
+}
 
-const issues = new CSV<MinimalIssue>();
+const data = <GitHubAPI.Issue[]>JSON.parse(fs.readFileSync(path.join(dataDir, 'issue-index.json'), 'utf-8'));
+
+const issues = new CSV<GitHubAPI.Issue>();
 issues.addColumn('Issue ID', i => i.number.toString());
 issues.addColumn('Title', i => i.title);
 issues.addColumn('Created Date', i => timestampToDate(i.created_at));
-issues.addColumn('Created By', i => i.created_by || '(none)');
+issues.addColumn('Created By', i => i.user ? i.user.login : '(none)');
 issues.addColumn('Type', i => i.pull_request ? "PR" : "Issue");
 issues.addColumn('State', i => i.state);
-issues.addColumn('Label', i => i.pull_request ? "PR" : (bestLabel(i) || (i.state === 'closed' ? 'Closed' : 'Unlabeled')));
+issues.addColumn('Label', i => bestLabel(i));
+issues.addColumn('Category', i => BroadCategories[bestLabel(i)] || bestLabel(i));
+issues.addColumn('Month', i => getMonthCreated(i));
 
-fs.writeFile('issues.csv', issues.generate(data).join('\r\n'), 'utf-8');
+fs.writeFile('issues.csv', issues.generate(data).join('\r\n'), { encoding: 'utf-8' });
 
 const activity = new CSV<ActivityRecord>();
 activity.addColumn('Issue ID', i => i.issueId.toString());
@@ -154,10 +190,10 @@ activity.addColumn('Date', i => i.date.toLocaleDateString());
 activity.addColumn('Length', i => i.length.toString());
 const activities: ActivityRecord[] = [];
 data.forEach(issue => {
-	const file = path.join(__dirname, 'data', `${issue.number}.json`);
+	const file = path.join(dataDir, `${issue.number}.json`);
 	const fileData = <StoredIssue>JSON.parse(fs.readFileSync(file, 'utf-8'));
 	getActivityRecords(fileData).forEach(rec => activities.push(rec));
 });
 
-fs.writeFile('activity.csv', activity.generate(activities).join('\r\n'), 'utf-8');
+fs.writeFile('activity.csv', activity.generate(activities).join('\r\n'), { encoding: 'utf-8' });
 

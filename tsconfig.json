@@ -16,6 +16,8 @@
     },
     "files": [
         "src/fetch.ts",
+        "src/duplicate-finder.ts",
+        "src/make-csv.ts",
         "src/types.d.ts",
         "src/github.d.ts"
     ]

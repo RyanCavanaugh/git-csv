@@ -98,7 +98,7 @@ function fetchIssueData(issue: GitHubAPI.Issue, done: () => void) {
 
 	fs.exists(filename, exists => {
 		if (exists) {
-			fs.readFile(filename, 'utf-8', (err, data) => {
+			fs.readFile(filename, {encoding: 'utf-8' }, (err, data) => {
 				if (err) throw err;
 				
 				const storedData: StoredIssue = JSON.parse(data);
@@ -125,7 +125,7 @@ function fetchIssueData(issue: GitHubAPI.Issue, done: () => void) {
 					fetchTimestamp,
 					issue
 				};
-				fs.writeFile(filename, JSON.stringify(data, undefined!, 2), 'utf-8', err => {
+				fs.writeFile(filename, JSON.stringify(data, undefined!, 2), {encoding: 'utf-8' }, err => {
 					if (err) throw err;
 					done();
 				});
@@ -150,14 +150,14 @@ function main() {
 	fs.exists(indexFilename, exists => {
 		if (exists) {
 			console.log('Issue index exists already');
-			fs.readFile(indexFilename, 'utf-8', (err, data) => {
+			fs.readFile(indexFilename, {encoding: 'utf-8' }, (err, data) => {
 				if (err) throw err;
 				fetchIssuesData(JSON.parse(data));
 			});
 		} else {
 			fetchIssues(issues => {
 				console.log('Downloading issue index');
-				fs.writeFile(indexFilename, JSON.stringify(issues, undefined!, 2), 'utf-8', err => {
+				fs.writeFile(indexFilename, JSON.stringify(issues, undefined!, 2), {encoding: 'utf-8' }, err => {
 					if (err) throw err;
 					console.log('Fetch issues data');
 					fetchIssuesData(issues);

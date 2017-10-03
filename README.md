@@ -1,1 +1,1 @@
-# git-csv
+Delete data\issue-index.json
