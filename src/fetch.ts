@@ -8,6 +8,19 @@ const dataPath = path.join(__dirname, "../data");
 const indexFilename = path.join(dataPath, 'issue-index.json');
 
 let rateLimit: number;
+let rateReset: number;
+
+function updateRateLimit(done: () => void) {
+	githubRequest('rate_limit', undefined, undefined, undefined, {}, undefined, rateLimitStr => {
+		let rates = JSON.parse(rateLimitStr);
+		rateLimit = rates['rate']['remaining'];
+		rateReset = rates['rate']['reset'];
+		console.log(rateLimitStr);
+		console.log('Started up; remaining rate limit = ' + rateLimit);
+	
+		done();
+	});
+}
 
 interface Parameters {
 	[s: string]: string;
@@ -16,38 +29,46 @@ interface Parameters {
 function githubRequest(prefix: string, owner: string | undefined, repo: string | undefined, path: string | undefined, params: Parameters, format: string | undefined, done: (data: string) => void) {
 	if (format === undefined) format = 'text/json';
 
-	rateLimit--;
-
 	if (rateLimit === 0) {
-		console.log('Aborting because we are about to hit the rate limit. Try again later.');
+		const waitAmount = 20 + rateReset - (Date.now() / 1000);
+		console.log(`Waiting ${waitAmount | 0}s for rate limit reset`);
+		setTimeout(() => {
+			updateRateLimit(go);
+		}, waitAmount * waitAmount);
 		return;
+	} else {
+		go();
 	}
 
-	params['client_id'] = oath['client-id'];
-	params['client_secret'] = oath['client-secret'];
+	function go() {
+		rateLimit--;
 
-	let parts = [prefix, owner, repo, path].filter(s => !!s);
-	let paramStr = Object.keys(params).map(k => k + '=' + encodeURIComponent(params[k])).join('&');
-
-	let options = {
-		host: 'api.github.com',
-		path: '/' + parts.join('/') + '?' + paramStr,
-		headers: {
-			'User-Agent': 'RyanCavanaugh',
-			'Accept': format
-		},
-		method: 'GET'
-	};
-
-	https.get(options, res => {
-		let data = '';
-		res.on('data', (d: string) => {
-			data = data + d;
+		params['client_id'] = oath['client-id'];
+		params['client_secret'] = oath['client-secret'];
+	
+		let parts = [prefix, owner, repo, path].filter(s => !!s);
+		let paramStr = Object.keys(params).map(k => k + '=' + encodeURIComponent(params[k])).join('&');
+	
+		let options = {
+			host: 'api.github.com',
+			path: '/' + parts.join('/') + '?' + paramStr,
+			headers: {
+				'User-Agent': 'RyanCavanaugh',
+				'Accept': format
+			},
+			method: 'GET'
+		};
+	
+		https.get(options, res => {
+			let data = '';
+			res.on('data', (d: string) => {
+				data = data + d;
+			});
+			res.on('end', () => {
+				done(data);
+			});
 		});
-		res.on('end', () => {
-			done(data);
-		});
-	});
+	}
 }
 
 function getPagedData(prefix: string, owner: string, repo: string, path: string, params: Parameters, format: string | undefined, per_page: number, done: (data: {}[]) => void, transform?: (x: {}) => {}) {
@@ -167,11 +188,4 @@ function main() {
 	});
 }
 
-githubRequest('rate_limit', undefined, undefined, undefined, {}, undefined, rateLimitStr => {
-	let rates = JSON.parse(rateLimitStr);
-	rateLimit = rates['rate']['remaining'];
-	console.log(rateLimitStr);
-	console.log('Started up; remaining rate limit = ' + rateLimit);
-
-	main();
-});
+updateRateLimit(main);
