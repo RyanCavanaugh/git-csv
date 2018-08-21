@@ -161,6 +161,54 @@ function getActivityRecords(issue: StoredIssue) {
 	return result;
 }
 
+function hasLabel(issue: GitHubAPI.Issue, name: string) {
+	return issue.labels.some(l => l.name === name);
+}
+
+function hasAnyLabel(issue: GitHubAPI.Issue, ...names: string[]): string | undefined {
+	return issue.labels.map(l => l.name).filter(l => names.indexOf(l) >= 0)[0];
+}
+
+function categorize(issue: GitHubAPI.Issue): [string, string] {
+	if (issue.pull_request) return ["Pull Request", ""];
+
+	if (hasLabel(issue, "Bug")) {
+		return ["Bug", categorizeBug()];
+	}
+
+	if (hasLabel(issue, "Suggestion")) {
+		return ["Suggestion", categorizeSuggestion()];
+	}
+
+	const noise = hasAnyLabel(issue, "Duplicate", "Working as Intended", "Design Limitation", "Needs More Info");
+	if (noise) return ["Not a Bug", noise];
+
+	const doc = hasAnyLabel(issue, "Docs", "Spec", "Website Logo");
+	if (doc) return ["Documentation", doc];
+
+	const question = hasAnyLabel(issue, "Question", "Discussion");
+	if (question) return ["Questions", question];
+
+	if (hasLabel(issue, "Needs Investigation")) return ["Untriaged", "Needs Investigation"];
+
+	return ["Untriaged", ""];
+
+	function categorizeBug(): string {
+		if (issue.milestone) {
+			return issue.milestone.title;
+		}
+		return "No Milestone";
+	}
+
+	function categorizeSuggestion() {
+		if (hasAnyLabel(issue, "In Discussion")) return "In Discussion";
+		if (hasAnyLabel(issue, "Committed", "help wanted")) return "Accepted";
+		if (hasAnyLabel(issue, "Needs More Info", "Needs Proposal")) return "Needs Clarification";
+		if (hasAnyLabel(issue, "Awaiting More Feedback", "Revisit")) return "Not Right Now";
+		return "Unsorted";
+	}
+}
+
 function getMonthCreated(i: GitHubAPI.Issue): string {
 	const date = new Date(timestampToDate(i.created_at));
 	return `${date.getFullYear()}-${("0" + (1 + date.getMonth())).slice(-2)}`
@@ -171,16 +219,21 @@ const data = <GitHubAPI.Issue[]>JSON.parse(fs.readFileSync(path.join(dataDir, 'i
 const issues = new CSV<GitHubAPI.Issue>();
 issues.addColumn('Issue ID', i => i.number.toString());
 issues.addColumn('Title', i => i.title);
+issues.addColumn('Month Created', i => getMonthCreated(i));
+issues.addColumn('Assigned To', i => i.assignee ? i.assignee.login : "");
 issues.addColumn('Created Date', i => timestampToDate(i.created_at));
 issues.addColumn('Created By', i => i.user ? i.user.login : '(none)');
+issues.addColumn('Category1', i => categorize(i)[0]);
+issues.addColumn('Category2', i => categorize(i)[1]);
 issues.addColumn('Type', i => i.pull_request ? "PR" : "Issue");
 issues.addColumn('State', i => i.state);
-issues.addColumn('Label', i => bestLabel(i));
 issues.addColumn('Category', i => BroadCategories[bestLabel(i)] || bestLabel(i));
-issues.addColumn('Month', i => getMonthCreated(i));
+issues.addColumn('Milestone', i => i.milestone ? i.milestone.title : "");
+issues.addColumn('Label', i => bestLabel(i));
 
 fs.writeFile('issues.csv', issues.generate(data).join('\r\n'), { encoding: 'utf-8' });
 
+/*
 const activity = new CSV<ActivityRecord>();
 activity.addColumn('Issue ID', i => i.issueId.toString());
 activity.addColumn('Type', i => i.pullRequest ? "PR" : "Issue");
@@ -196,4 +249,5 @@ data.forEach(issue => {
 });
 
 fs.writeFile('activity.csv', activity.generate(activities).join('\r\n'), { encoding: 'utf-8' });
-
+*/
+void getActivityRecords;
