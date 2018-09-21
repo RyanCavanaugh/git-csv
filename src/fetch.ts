@@ -11,6 +11,7 @@ let rateLimit: number;
 let rateReset: number;
 
 function updateRateLimit(done: () => void) {
+	rateLimit = 1;
 	githubRequest('rate_limit', undefined, undefined, undefined, {}, undefined, rateLimitStr => {
 		let rates = JSON.parse(rateLimitStr);
 		rateLimit = rates['rate']['remaining'];
@@ -34,7 +35,7 @@ function githubRequest(prefix: string, owner: string | undefined, repo: string |
 		console.log(`Waiting ${waitAmount | 0}s for rate limit reset`);
 		setTimeout(() => {
 			updateRateLimit(go);
-		}, waitAmount * waitAmount);
+		}, waitAmount * 1000);
 		return;
 	} else {
 		go();

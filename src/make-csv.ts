@@ -211,6 +211,10 @@ function categorize(issue: GitHubAPI.Issue): [string, string] {
 
 function getMonthCreated(i: GitHubAPI.Issue): string {
 	const date = new Date(timestampToDate(i.created_at));
+	return getMonthOfDate(date);
+}
+
+function getMonthOfDate(date: Date): string {
 	return `${date.getFullYear()}-${("0" + (1 + date.getMonth())).slice(-2)}`
 }
 
@@ -233,13 +237,13 @@ issues.addColumn('Label', i => bestLabel(i));
 
 fs.writeFile('issues.csv', issues.generate(data).join('\r\n'), { encoding: 'utf-8' });
 
-/*
 const activity = new CSV<ActivityRecord>();
 activity.addColumn('Issue ID', i => i.issueId.toString());
 activity.addColumn('Type', i => i.pullRequest ? "PR" : "Issue");
 activity.addColumn('Activity', i => i.activity);
 activity.addColumn('User', i => i.actor);
 activity.addColumn('Date', i => i.date.toLocaleDateString());
+activity.addColumn('Month', i => getMonthOfDate(i.date));
 activity.addColumn('Length', i => i.length.toString());
 const activities: ActivityRecord[] = [];
 data.forEach(issue => {
@@ -249,5 +253,3 @@ data.forEach(issue => {
 });
 
 fs.writeFile('activity.csv', activity.generate(activities).join('\r\n'), { encoding: 'utf-8' });
-*/
-void getActivityRecords;
