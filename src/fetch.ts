@@ -27,7 +27,7 @@ interface Parameters {
 	[s: string]: string;
 }
 
-function githubRequest(prefix: string, owner: string | undefined, repo: string | undefined, path: string | undefined, params: Parameters, format: string | undefined, done: (data: string) => void) {
+function githubRequest(prefix: string, owner: string | undefined, repo: string | undefined, path: string | undefined, params: Parameters, format: string | undefined, done: (data: string, fetchedUrl: string) => void) {
 	if (format === undefined) format = 'text/json';
 
 	if (rateLimit === 0) {
@@ -60,13 +60,22 @@ function githubRequest(prefix: string, owner: string | undefined, repo: string |
 			method: 'GET'
 		};
 	
+		console.log(`Fetch ${owner}/${repo}/${path}`);
 		https.get(options, res => {
 			let data = '';
 			res.on('data', (d: string) => {
 				data = data + d;
 			});
+			res.on('error', e => {
+				throw e;
+			});
 			res.on('end', () => {
-				done(data);
+				if (data === '') {
+					console.log("Got empty data; retrying...");
+					setTimeout(go, 1000);
+				} else {
+					done(data, options.path);
+				}
 			});
 		});
 	}
@@ -81,8 +90,18 @@ function getPagedData(prefix: string, owner: string, repo: string, path: string,
 	function next(pageNumber: number) {
 		myParams['page'] = pageNumber.toString();
 		myParams['per_page'] = per_page.toString();
-		githubRequest(prefix, owner, repo, path, myParams, format, (data: string) => {
-			const parsedData = <{}[]>JSON.parse(data);
+		githubRequest(prefix, owner, repo, path, myParams, format, (data: string, fetchedUrl: string) => {
+			let parsedData: {}[];
+			try {
+				parsedData = JSON.parse(data);
+			} catch (e) {
+				console.log(`Error parsing JSON`);
+				console.log(`=========`);
+				console.log(data);
+				console.log(`=========`);
+				throw new Error(`Failed to load from ${fetchedUrl}`);
+			}
+
 			if (per_page === undefined) per_page = parsedData.length;
 			result = result.concat(transform ? parsedData.map(transform) : parsedData);
 
