@@ -81,7 +81,7 @@ function githubRequest(prefix: string, owner: string | undefined, repo: string |
 	}
 }
 
-function getPagedData(prefix: string, owner: string, repo: string, path: string, params: Parameters, format: string | undefined, per_page: number, done: (data: {}[]) => void, transform?: (x: {}) => {}) {
+function getPagedData(prefix: string, owner: string, repo: string, path: string, params: Parameters, format: string | undefined, per_page: number, done: (data: any[]) => void, transform?: (x: {}) => {}) {
 	const myParams = JSON.parse(JSON.stringify(params));
 	next(1);
 

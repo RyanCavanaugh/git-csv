@@ -6,15 +6,13 @@
 
         "outDir": "bin",
 
-        "noImplicitAny": true,
-        "strictNullChecks": true,
+        "strict": true,
         "noImplicitReturns": true,
         "noEmitOnError": true,
-        "noImplicitThis": true,
-        "noUnusedLocals": true,
-        "noUnusedParameters": true
+        "noImplicitThis": true
     },
     "files": [
+        "src/treeage.ts",
         "src/fetch.ts",
         "src/duplicate-finder.ts",
         "src/make-csv.ts",
