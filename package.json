@@ -1,0 +1,31 @@
+{
+  "name": "git-csv",
+  "version": "1.0.0",
+  "description": "Delete data\\issue-index.json",
+  "main": "index.js",
+  "bin": {
+    "git-csv": "duplicate-finder.js"
+  },
+  "dependencies": {
+    "@types/node": "^11.10.5",
+    "fs-extra": "^7.0.1"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^5.0.5",
+    "typescript": "^3.3.3333"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RyanCavanaugh/git-csv.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/RyanCavanaugh/git-csv/issues"
+  },
+  "homepage": "https://github.com/RyanCavanaugh/git-csv#readme"
+}

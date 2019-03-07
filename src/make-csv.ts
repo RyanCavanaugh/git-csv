@@ -235,7 +235,7 @@ issues.addColumn('Category', i => BroadCategories[bestLabel(i)] || bestLabel(i))
 issues.addColumn('Milestone', i => i.milestone ? i.milestone.title : "");
 issues.addColumn('Label', i => bestLabel(i));
 
-fs.writeFile('issues.csv', issues.generate(data).join('\r\n'), { encoding: 'utf-8' });
+fs.writeFileSync('issues.csv', issues.generate(data).join('\r\n'), { encoding: 'utf-8' });
 
 const activity = new CSV<ActivityRecord>();
 activity.addColumn('Issue ID', i => i.issueId.toString());
@@ -252,4 +252,4 @@ data.forEach(issue => {
 	getActivityRecords(fileData).forEach(rec => activities.push(rec));
 });
 
-fs.writeFile('activity.csv', activity.generate(activities).join('\r\n'), { encoding: 'utf-8' });
+fs.writeFileSync('activity.csv', activity.generate(activities).join('\r\n'), { encoding: 'utf-8' });

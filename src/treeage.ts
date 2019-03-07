@@ -346,58 +346,65 @@ function needsMoreInfoButNotSuggestion(item: any) {
 }
 needsMoreInfoButNotSuggestion.description = "Needs More Info but not Suggestion";
 
+function nonLinkingReference(issueNumber: string, title: string) {
+    return `[#${issueNumber} ${title}](https://github.com/Microsoft/TypeScript/${enc("issues")}/${issueNumber})`;
+    function enc(s: string) {
+        return s.split("").map(c => "%" + c.charCodeAt(0).toString(16)).join("");
+    }
+}
+
+function addReportListItem(issue: any, target: string[]) {
+    target.push(` * ${nonLinkingReference(issue.number, issue.title)}`);
+}
+
 namespace TsTriage {
     const root = create<any>().describe("All");
-    const report = {
-        bugs: 0,
-        suggestions: 0,
-        needsInvestigation: 0,
-        untriagedSuggestions: 0,
-        docs: 0,
-        spec: 0,
-        website: 0,
-        websiteLogo: 0,
-        discussion: 0,
-        infra: 0,
-        meta: 0,
-        designNotes: 0,
-        needsMoreInfo: 0,
-        external: 0
-    };
     const untriagedList: any[] = [];
 
+    const reportSections = {
+        untriaged: [] as string[],
+        mislabelled: [] as string[],
+        pendingSuggestions: [] as string[],
+        untriagedSuggestions: [] as string[],
+        needsSuggestionLabel: [] as string[]
+    };
+
     root.catch((item, err) => {
-        console.log(`Matched too many: #${item.issue.number} ${item.issue.title}`);
-        for (const pred of err.predicates) {
-            console.log(` -> ${pred.description || pred.toString()}`);
-        }
+        reportSections.mislabelled.push(...[
+            ` * ${nonLinkingReference(item.issue.number, item.issue.title)}`,
+            ...err.predicates.map(pred =>
+                `   * ${pred.description || pred.toString()}`
+            )
+        ]);
     });
 
-    const closed = root.addPath(isClosed).describe("Closed");
+    root.addPath(isClosed).describe("Closed");
     const open = root.otherwise().describe("Open");
     root.addTerminalAction(throwImpossible);
 
-    const pr = open.addPath(isPullRequest).describe("PRs");
+    open.addPath(isPullRequest).describe("PRs");
     const issue = open.otherwise().describe("Open Issues");
 
-    const bug = issue.addPath(hasLabel("Bug")).describe("Bugs");
-    bug.addTerminalAction(() => report.bugs++);
+    issue.addPath(hasLabel("Bug")).describe("Bugs");
 
     const suggestionPendingLabels = ["Needs Proposal", "Awaiting More Feedback", "Needs More Info"];
     const suggestion = issue.addPath(hasLabel("Suggestion")).describe("Suggestions");
     const docket = suggestion.addPath(hasLabel("In Discussion")).describe("In Discussion");
-    const pending = suggestion.addPath(hasAnyLabel(...suggestionPendingLabels)).describe("Pending");
-    suggestion.otherwise().describe("Untriaged Suggestion").addAlwaysAction(() => report.untriagedSuggestions++)
-    suggestion.addAlwaysAction(() => report.suggestions++);
+    suggestion.addPath(hasAnyLabel(...suggestionPendingLabels)).describe("Pending").addAlwaysAction((item) => {
+        addReportListItem(item.issue, reportSections.pendingSuggestions);
+    });
+    suggestion.otherwise().describe("Untriaged Suggestion").addAlwaysAction((item) => {
+        addReportListItem(item.issue, reportSections.untriagedSuggestions);
+    });
 
+    issue.addPath(hasLabel("Needs Investigation"));
 
-    issue.addPath(hasLabel("Needs Investigation")).addAlwaysAction(() => report.needsInvestigation++);
-
-    const meta = create<any>().describe("Meta & Infra");
+    const meta = create<any>().describe("Meta, Infra, & Notes");
     meta.addPath(hasLabel("Meta-Issue"));
     meta.addPath(hasLabel("Infrastructure"));
     meta.addPath(hasLabel("Design Notes"));
     meta.addPath(hasLabel("Discussion"));
+    meta.addPath(hasLabel("Planning"));
     issue.addPathTo(meta.groupingPredicate, meta);
 
     const docs = create<any>().describe("Docs & Website");
@@ -412,15 +419,17 @@ namespace TsTriage {
     noiseLabels.forEach(label => noise.addPath(hasLabel(label)));
     issue.addPathTo(noise.groupingPredicate, noise);
 
-    issue.addPath(hasLabel("External")).describe("External").addAlwaysAction(() => report.external++);
+    issue.addPath(hasLabel("External"));
 
-    issue.addPath(needsMoreInfoButNotSuggestion).addAlwaysAction(() => report.needsMoreInfo++);
+    issue.addPath(needsMoreInfoButNotSuggestion);
 
     const untriaged = issue.otherwise().describe("Untriaged");
     untriaged.addPath(hasAnyLabel("Needs Proposal", "In Discussion")).addAlwaysAction(item => {
-        console.log(`Issue missing Suggestion label: #${item.issue.number} - ${item.issue.title}`);
+        addReportListItem(item.issue, reportSections.needsSuggestionLabel);
     });
-    untriaged.addTerminalAction(issue => untriagedList.push(issue));
+    untriaged.addTerminalAction(item => {
+        addReportListItem(item.issue, reportSections.untriaged);
+    });
 
     const fileNames = fs.readdirSync(dataRoot);
     for (const fn of fileNames) {
@@ -429,11 +438,14 @@ namespace TsTriage {
         root.process(issue);
     }
 
-    for (const untr of untriagedList) {
-        console.log(`Untriaged: #${untr.issue.number} - ${untr.issue.title}`);
-    }
-    // console.log(JSON.stringify(report, undefined, 2));
-    console.log(`${untriagedList.length} untr, ${report.bugs} bugs, ${report.suggestions} suggestions (${report.untriagedSuggestions} untriaged)`);
-
     fs.writeFileSync("viz.txt", visualizeNodeTree(root), { encoding: "utf-8" });
+
+    const reportLines: string[] = [];
+    for (const k of Object.keys(reportSections)) {
+        const list = (reportSections as any)[k];
+        reportLines.push(` ## ${k} (${list.length})`);
+        reportLines.push(...list);
+        reportLines.push("");
+    }
+    fs.writeFileSync("report.md", reportLines.join("\r\n"), { encoding: "utf-8" });
 }

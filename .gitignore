@@ -1,3 +1,7 @@
 data/
 bin/
+node_modules/
 *.csv
+
+report.md
+viz.txt
