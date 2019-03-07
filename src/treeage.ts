@@ -34,7 +34,7 @@ export function visualizeNodeTree(root: Node<any>): string {
             const target = path[1] as ImplementedNode<any>;
             const targetName = recordNode(target);
             const pred = path[0] as any;
-            lines.push(`    ${nodeName} -> ${targetName} [label="${pred.description || pred.name || "(???)"}"];`);
+            lines.push(`    ${nodeName} -> ${targetName} [label="${pred.description || ""}"];`);
         }
         if (node.otherwiseNode) {
             const targetName = recordNode(node.otherwiseNode as ImplementedNode<any>);
@@ -47,23 +47,58 @@ export function visualizeNodeTree(root: Node<any>): string {
 
 type FirstParameterOf<T> = T extends (arg: infer A) => unknown ? A : never;
 
-export type Predicate<T> = (item: T) => boolean;
+export type Predicate<T> = {
+    (item: T): boolean;
+    description?: string;
+};
+
 export type Action<T> = (item: T) => void;
 export interface Node<T> {
+    /**
+     * Creates a new node and add a predicated link to it.
+     * Returns the new node.
+     */
     addPath(predicate: Predicate<T>): Node<T>;
+    /**
+     * Adds a predicated link to the specified node.
+     */
     addPathTo(predicate: Predicate<T>, target: Node<T>): void;
+    /**
+     * Adds an action to occur on this node if none of its links are followed.
+     */
     addTerminalAction(action: Action<T>): void;
+    /**
+     * Adds an action to always occur on this node if it is traversed.
+     */
     addAlwaysAction(action: Action<T>): void;
+    /**
+     * Creates a node that is traversed to if no other links are traversed.
+     */
     otherwise(): Node<T>;
+    /**
+     * Process this item by following any matched links and executing any actions.
+     */
     process(item: T, catchHandler?: any): void;
+    /**
+     * Adds a description to this node.
+     * Returns the same node.
+     */
     describe(name: string): Node<T>;
 
+    /**
+     * Attaches a handler to be invoked if a node fails to follow a defined traversal of the graph.
+     */
     catch(handler: (erroringItem: T, error: TreeageError) => void): void;
+
+    /**
+     * Returns true if this node has any paths which would be traversed for this item.
+     */
+    groupingPredicate(item: T): boolean;
 
     readonly description: string;
     readonly hitCount: number;
     readonly terminalHitCount: number;
-};
+}
 
 export type ImplementedNode<T> = Node<T> & {
     paths: ReadonlyArray<[Predicate<T>, Node<T>]>;
@@ -85,6 +120,26 @@ interface NodeOptions {
 
 function assertNever(x: never) {
     throw new Error(`Impossible value ${x} observed`);
+}
+
+export function createGroupNode<T>() {
+    const node = create<T>();
+
+    const preds: Predicate<T>[] = [];
+
+    function addGroupChild(predicate: Predicate<T>) {
+        preds.push(predicate);
+    }
+
+    function predicate(item: T) {
+
+    }
+
+    return {
+        node,
+        predicate,
+        addGroupChild
+    };
 }
 
 export function create<T>(): Node<T> {
@@ -166,6 +221,10 @@ export function create<T>(): Node<T> {
 
     function addPath(predicate: Predicate<T>): Node<T> {
         const target = create<T>();
+        if (predicate.description) {
+            target.describe(predicate.description);
+        }
+
         paths.push([predicate, target]);
         return target;
     }
@@ -191,6 +250,17 @@ export function create<T>(): Node<T> {
         catchHandler = handler;
     }
 
+    function groupingPredicate(item: T) {
+        return paths.some(p => p[0](item));
+    }
+    Object.defineProperties(groupingPredicate, {
+        description: {
+            get() {
+                return paths.map(p => p[0].description || "??").join(" or ");
+            }
+        }
+    });
+
     const impl: ImplementedNode<T> = {
         addPath,
         addPathTo,
@@ -202,6 +272,7 @@ export function create<T>(): Node<T> {
         actions,
         terminalActions,
         process,
+        groupingPredicate,
         catch: catchImpl,
 
         get description() {
@@ -225,7 +296,7 @@ function hasLabel(name: string): Predicate<any> {
     function hasLabelImpl(item: any) {
         return item.issue.labels.some((i: any) => i.name === name);
     }
-    hasLabelImpl.description = `Has label ${name}`;
+    hasLabelImpl.description = `[${name}]`;
 
     return hasLabelImpl;
 }
@@ -240,14 +311,14 @@ function hasAnyLabel(...names: string[]): Predicate<any> {
         return false;
     }
 
-    hasAnyLabelImpl.description = `${names.join('\\n')}`;
+    hasAnyLabelImpl.description = `${names.join(' or ')}`;
     return hasAnyLabelImpl;
 }
 
 function never() {
     return false;
 }
-never.description = "(not traversable)";
+never.description = "(not reachable)";
 
 function isOpen(issue: any) {
     return issue.issue.state === "open";
@@ -269,6 +340,11 @@ function isPullRequest(issue: any) {
     return !!issue.issue.pull_request;
 }
 isPullRequest.description = "Is PR";
+
+function needsMoreInfoButNotSuggestion(item: any) {
+    return hasLabel("Needs More Info")(item) && !hasLabel("Suggestion")(item);
+}
+needsMoreInfoButNotSuggestion.description = "Needs More Info but not Suggestion";
 
 namespace TsTriage {
     const root = create<any>().describe("All");
@@ -292,6 +368,9 @@ namespace TsTriage {
 
     root.catch((item, err) => {
         console.log(`Matched too many: #${item.issue.number} ${item.issue.title}`);
+        for (const pred of err.predicates) {
+            console.log(` -> ${pred.description || pred.toString()}`);
+        }
     });
 
     const closed = root.addPath(isClosed).describe("Closed");
@@ -311,27 +390,37 @@ namespace TsTriage {
     suggestion.otherwise().describe("Untriaged Suggestion").addAlwaysAction(() => report.untriagedSuggestions++)
     suggestion.addAlwaysAction(() => report.suggestions++);
 
-    const noiseLabels = ["Question", "Working as Intended", "Design Limitation", "Duplicate", "By Design"];
-    const noise = issue.addPath(hasAnyLabel(...noiseLabels)).describe("Noise");
 
     issue.addPath(hasLabel("Needs Investigation")).addAlwaysAction(() => report.needsInvestigation++);
-    issue.addPath(hasLabel("Docs")).addAlwaysAction(() => report.docs++);
-    issue.addPath(hasLabel("Website")).addAlwaysAction(() => report.website++);
-    issue.addPath(hasLabel("Website Logo")).addAlwaysAction(() => report.websiteLogo++);
-    issue.addPath(hasLabel("Discussion")).addAlwaysAction(() => report.discussion++);
-    issue.addPath(hasLabel("Infrastructure")).addAlwaysAction(() => report.infra++);
-    issue.addPath(hasLabel("Spec")).addAlwaysAction(() => report.spec++);
-    issue.addPath(hasLabel("Meta-Issue")).addAlwaysAction(() => report.meta++);
-    issue.addPath(hasLabel("Design Notes")).addAlwaysAction(() => report.designNotes++);
-    issue.addPath(hasLabel("External")).addAlwaysAction(() => report.external++);
-    issue.addPath(item => hasLabel("Needs More Info")(item) && !hasLabel("Suggestion")(item)).addAlwaysAction(() => report.needsMoreInfo++);
+
+    const meta = create<any>().describe("Meta & Infra");
+    meta.addPath(hasLabel("Meta-Issue"));
+    meta.addPath(hasLabel("Infrastructure"));
+    meta.addPath(hasLabel("Design Notes"));
+    meta.addPath(hasLabel("Discussion"));
+    issue.addPathTo(meta.groupingPredicate, meta);
+
+    const docs = create<any>().describe("Docs & Website");
+    docs.addPath(hasLabel("Website"));
+    docs.addPath(hasLabel("Website Logo"));
+    docs.addPath(hasLabel("Spec"));
+    docs.addPath(hasLabel("Docs"));
+    issue.addPathTo(docs.groupingPredicate, docs);
+
+    const noise = create<any>().describe("Noise");
+    const noiseLabels = ["Question", "Working as Intended", "Design Limitation", "Duplicate", "By Design"];
+    noiseLabels.forEach(label => noise.addPath(hasLabel(label)));
+    issue.addPathTo(noise.groupingPredicate, noise);
+
+    issue.addPath(hasLabel("External")).describe("External").addAlwaysAction(() => report.external++);
+
+    issue.addPath(needsMoreInfoButNotSuggestion).addAlwaysAction(() => report.needsMoreInfo++);
 
     const untriaged = issue.otherwise().describe("Untriaged");
     untriaged.addPath(hasAnyLabel("Needs Proposal", "In Discussion")).addAlwaysAction(item => {
         console.log(`Issue missing Suggestion label: #${item.issue.number} - ${item.issue.title}`);
     });
     untriaged.addTerminalAction(issue => untriagedList.push(issue));
-
 
     const fileNames = fs.readdirSync(dataRoot);
     for (const fn of fileNames) {
