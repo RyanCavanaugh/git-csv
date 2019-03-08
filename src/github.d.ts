@@ -75,6 +75,14 @@ declare namespace GitHubAPI {
     closed_at: string | null;
   }
 
+  export type IssueReaction = {
+    id: number,
+    node_id: string,
+    user: User,
+    content: string,
+    created_at: string
+  };
+
   export type IssueEvent =
     IssueClosedEvent |
     IssueReopenedEvent |

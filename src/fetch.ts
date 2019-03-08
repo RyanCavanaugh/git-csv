@@ -144,11 +144,13 @@ async function fetchIssueData(issue: GitHubAPI.Issue) {
 	console.log(`Download issue data for ${issue.number}`);
 	const comments: GitHubAPI.IssueComment[] = await getPagedData('repos', 'Microsoft', 'TypeScript', `issues/${issue.number}/comments`, {}, undefined, 100);
 	const events: GitHubAPI.IssueEvent[] = await getPagedData('repos', 'Microsoft', 'TypeScript', `issues/${issue.number}/events`, {}, undefined, 100);
+	const reactions: GitHubAPI.IssueReaction[] = await getPagedData('repos', 'Microsoft', 'TypeScript', `issues/${issue.number}/reactions`, {}, "application/vnd.github.squirrel-girl-preview+json", 100);
 	const data: StoredIssue = {
 		comments,
 		events,
+		reactions,
 		fetchTimestamp,
-		issue
+		issue,
 	};
 	await fs.writeFile(filename, JSON.stringify(data, undefined, 2), { encoding: "utf-8" });
 }

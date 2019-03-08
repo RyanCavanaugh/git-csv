@@ -3,14 +3,6 @@ import path = require("path");
 
 const dataRoot = path.join(__dirname, "../data");
 
-/*
- *
- *
- *
- *
- *
-*/
-
 export function visualizeNodeTree(root: Node<any>): string {
     const seenNodes: Node<any>[] = [];
 
@@ -346,7 +338,7 @@ function needsMoreInfoButNotSuggestion(item: any) {
 }
 needsMoreInfoButNotSuggestion.description = "Needs More Info but not Suggestion";
 
-function nonLinkingReference(issueNumber: string, title: string) {
+function nonLinkingReference(issueNumber: string | number, title: string) {
     return `[#${issueNumber} ${title}](https://github.com/Microsoft/TypeScript/${enc("issues")}/${issueNumber})`;
     function enc(s: string) {
         return s.split("").map(c => "%" + c.charCodeAt(0).toString(16)).join("");
@@ -358,8 +350,7 @@ function addReportListItem(issue: any, target: string[]) {
 }
 
 namespace TsTriage {
-    const root = create<any>().describe("All");
-    const untriagedList: any[] = [];
+    const root = create<StoredIssue>().describe("All");
 
     const reportSections = {
         untriaged: [] as string[],
@@ -399,7 +390,7 @@ namespace TsTriage {
 
     issue.addPath(hasLabel("Needs Investigation"));
 
-    const meta = create<any>().describe("Meta, Infra, & Notes");
+    const meta = create<StoredIssue>().describe("Meta, Infra, & Notes");
     meta.addPath(hasLabel("Meta-Issue"));
     meta.addPath(hasLabel("Infrastructure"));
     meta.addPath(hasLabel("Design Notes"));
@@ -407,14 +398,14 @@ namespace TsTriage {
     meta.addPath(hasLabel("Planning"));
     issue.addPathTo(meta.groupingPredicate, meta);
 
-    const docs = create<any>().describe("Docs & Website");
+    const docs = create<StoredIssue>().describe("Docs & Website");
     docs.addPath(hasLabel("Website"));
     docs.addPath(hasLabel("Website Logo"));
     docs.addPath(hasLabel("Spec"));
     docs.addPath(hasLabel("Docs"));
     issue.addPathTo(docs.groupingPredicate, docs);
 
-    const noise = create<any>().describe("Noise");
+    const noise = create<StoredIssue>().describe("Noise");
     const noiseLabels = ["Question", "Working as Intended", "Design Limitation", "Duplicate", "By Design"];
     noiseLabels.forEach(label => noise.addPath(hasLabel(label)));
     issue.addPathTo(noise.groupingPredicate, noise);

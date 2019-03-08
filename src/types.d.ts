@@ -3,4 +3,5 @@ interface StoredIssue {
 	issue: GitHubAPI.Issue;
 	comments: GitHubAPI.IssueComment[];
 	events: GitHubAPI.IssueEvent[];
+	reactions: GitHubAPI.IssueReaction[];
 }
