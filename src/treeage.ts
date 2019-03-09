@@ -349,15 +349,64 @@ function addReportListItem(issue: any, target: string[]) {
     target.push(` * ${nonLinkingReference(issue.number, issue.title)}`);
 }
 
-namespace TsTriage {
+function unwindIssueToDate(issueToUnwind: StoredIssue, date: Date): StoredIssue | undefined {
+    // Hasn't been born yet
+    if (new Date(issueToUnwind.issue.created_at) > date) return undefined;
+
+    const issue: StoredIssue = JSON.parse(JSON.stringify(issueToUnwind));
+
+    // For each thing that occurred after the specified date, attempt to undo it
+    const eventTimeline = issue.events.slice().reverse();
+    for (const event of eventTimeline) {
+        if (new Date(event.created_at) > date) {
+            issue.events.splice(issue.events.indexOf(event), 1);
+            switch (event.event) {
+                case "closed":
+                    issue.issue.state = "open";
+                    break;
+                case "reopened":
+                    issue.issue.state = "closed";
+                    break;
+                case "labeled":
+                    const match = issue.issue.labels.filter(x => x.name === event.label.name)[0];
+                    if (match !== undefined) {
+                        issue.issue.labels.splice(issue.issue.labels.indexOf(match), 1);
+                    } else {
+                        // If the label that was added has since been deleted,
+                        // it won't appear in the current list.
+                    }
+                    break;
+                case "unlabeled":
+                    issue.issue.labels.push({ ...event.label, url: "https://example.com" });
+                    break;
+                case "locked":
+                    issue.issue.locked = false;
+                    break;
+                case "unlocked":
+                    issue.issue.locked = true;
+                    break;
+            }
+        }
+    }
+
+    // Remove comments issued after the date
+    issue.comments = issue.comments.filter(c => new Date(c.created_at) > date);
+    issue.reactions = issue.reactions && issue.reactions.filter(r => new Date(r.created_at) > date);
+
+    return issue;
+}
+
+function createTriager() {
     const root = create<StoredIssue>().describe("All");
 
     const reportSections = {
+        bugs: [] as string[],
         untriaged: [] as string[],
         mislabelled: [] as string[],
         pendingSuggestions: [] as string[],
         untriagedSuggestions: [] as string[],
-        needsSuggestionLabel: [] as string[]
+        needsSuggestionLabel: [] as string[],
+        noise: [] as string[]
     };
 
     root.catch((item, err) => {
@@ -376,7 +425,9 @@ namespace TsTriage {
     open.addPath(isPullRequest).describe("PRs");
     const issue = open.otherwise().describe("Open Issues");
 
-    issue.addPath(hasLabel("Bug")).describe("Bugs");
+    issue.addPath(hasLabel("Bug")).describe("Bugs").addAlwaysAction(item => {
+        addReportListItem(item.issue, reportSections.bugs);
+    });
 
     const suggestionPendingLabels = ["Needs Proposal", "Awaiting More Feedback", "Needs More Info"];
     const suggestion = issue.addPath(hasLabel("Suggestion")).describe("Suggestions");
@@ -409,6 +460,9 @@ namespace TsTriage {
     const noiseLabels = ["Question", "Working as Intended", "Design Limitation", "Duplicate", "By Design"];
     noiseLabels.forEach(label => noise.addPath(hasLabel(label)));
     issue.addPathTo(noise.groupingPredicate, noise);
+    noise.addAlwaysAction(item => {
+        addReportListItem(item.issue, reportSections.noise);
+    });
 
     issue.addPath(hasLabel("External"));
 
@@ -421,6 +475,12 @@ namespace TsTriage {
     untriaged.addTerminalAction(item => {
         addReportListItem(item.issue, reportSections.untriaged);
     });
+
+    return { root, reportSections };
+}
+
+function runReport() {
+    const { root, reportSections } = createTriager();
 
     const fileNames = fs.readdirSync(dataRoot);
     for (const fn of fileNames) {
@@ -440,3 +500,44 @@ namespace TsTriage {
     }
     fs.writeFileSync("report.md", reportLines.join("\r\n"), { encoding: "utf-8" });
 }
+
+function getReportDates(): Date[] {
+    const result: Date[] = [];
+    let startDate = new Date("1/1/2015");
+    while (startDate < new Date()) {
+        result.push(startDate);
+        startDate = new Date(+startDate + 1000 * 60 * 60 * 24 * 7);
+    }
+    return result;
+}
+
+function runHistoricalReport() {
+    const dates = getReportDates();
+    const rows = dates.map(date => ({
+        date,
+        triager: createTriager()
+    }));
+
+    const fileNames = fs.readdirSync(dataRoot);
+    fileNames.sort();
+
+    for (const fn of fileNames) {
+        if (fn === "issue-index.json") continue;
+        const issue = JSON.parse(fs.readFileSync(path.join(dataRoot, fn), { encoding: "utf-8" }));
+        for (const row of rows) {
+            const oldIssue = unwindIssueToDate(issue, row.date);
+            if (oldIssue !== undefined) {
+                row.triager.root.process(oldIssue);
+            }
+        }
+    }
+
+    const columns = ["untriaged", "bugs", "noise", "mislabelled", "pendingSuggestions"];
+    console.log(["date", ...columns].join(","));
+    for (const row of rows) {
+        const csv = [row.date.toLocaleDateString(), ...columns.map(c => (row.triager.reportSections as any)[c].length)].join(",");
+        console.log(csv);
+    }
+}
+
+runHistoricalReport();
