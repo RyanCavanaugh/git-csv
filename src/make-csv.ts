@@ -1,47 +1,13 @@
 import fs = require('fs');
 import path = require('path');
+import csv = require('./csv');
+
+import CSV = csv.CSV;
 
 const dataDir = path.join(__dirname, '../data/');
 
-type ColumnValueMaker<T> = string | ((x: T) => string);
-
 function timestampToDate(s: string): string {
 	return new Date(s).toLocaleDateString();
-}
-
-class CSV<T> {
-	colNames: string[] = [];
-	producers: ColumnValueMaker<T>[] = [];
-
-	addColumn(name: string, funcOrKey: ColumnValueMaker<T>) {
-		this.colNames.push(name);
-		this.producers.push(funcOrKey);
-	}
-
-	private static quote(s: string): string {
-		return '"' + s.replace(/"/g, "'").replace(/^--/, ' --') + '"';
-	}
-
-	generate(arr: T[]): string[] {
-		const result: string[] = [];
-
-		result.push(this.colNames.join(','));
-
-		arr.forEach((entry: any) => {
-			const cells: string[] = [];
-			this.producers.forEach(key => {
-				if (typeof key === 'string') {
-					cells.push(entry[key]);
-				} else {
-					cells.push(key(entry));
-				}
-			});
-
-			result.push(cells.map(CSV.quote).join(','));
-		});
-
-		return result;
-	}
 }
 
 const LabelSynonyms: { [s: string]: string } = {
@@ -234,13 +200,19 @@ issues.addColumn('State', i => i.state);
 issues.addColumn('Category', i => BroadCategories[bestLabel(i)] || bestLabel(i));
 issues.addColumn('Milestone', i => i.milestone ? i.milestone.title : "");
 issues.addColumn('Label', i => bestLabel(i));
+issues.addColumn('Comments', i => i.comments.toString());
+issues.addColumn('Upvotes', issue => {
+	const file = path.join(dataDir, `${issue.number}.json`);
+	const fileData = <StoredIssue>JSON.parse(fs.readFileSync(file, 'utf-8'));
+	return fileData.reactions.filter(f => f.content === "+1").length.toString();
+});
 
 fs.writeFileSync('issues.csv', issues.generate(data).join('\r\n'), { encoding: 'utf-8' });
 
 const activity = new CSV<ActivityRecord>();
 activity.addColumn('Issue ID', i => i.issueId.toString());
 activity.addColumn('Type', i => i.pullRequest ? "PR" : "Issue");
-activity.addColumn('Activity', i => i.activity);
+activity.addColumn('Activity', i => i.activity || "?");
 activity.addColumn('User', i => i.actor);
 activity.addColumn('Date', i => i.date.toLocaleDateString());
 activity.addColumn('Month', i => getMonthOfDate(i.date));

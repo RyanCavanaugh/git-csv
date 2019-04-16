@@ -1,7 +1,10 @@
 import fs = require("fs");
 import path = require("path");
+import csv = require("./csv");
 
-const dataRoot = path.join(__dirname, "../data");
+import CSV = csv.CSV;
+
+const dataRoot = path.join(__dirname, "../data-old");
 
 export function visualizeNodeTree(root: Node<any>): string {
     const seenNodes: Node<any>[] = [];
@@ -134,9 +137,10 @@ export function createGroupNode<T>() {
     };
 }
 
-export function create<T>(): Node<T> {
+export function create<T>(nodeOptions?: NodeOptions): Node<T> {
     const options: NodeOptions = {
-        pathMode: "single"
+        pathMode: "single",
+        ...nodeOptions
     };
     const paths: [Predicate<T>, Node<T>][] = [];
     const terminalActions: Action<T>[] = [];
@@ -212,7 +216,7 @@ export function create<T>(): Node<T> {
     }
 
     function addPath(predicate: Predicate<T>): Node<T> {
-        const target = create<T>();
+        const target = create<T>(nodeOptions);
         if (predicate.description) {
             target.describe(predicate.description);
         }
@@ -235,7 +239,7 @@ export function create<T>(): Node<T> {
 
     function otherwise() {
         if (otherwiseNode) throw new Error("Cannot call 'otherwise' twice on this node");
-        return otherwiseNode = create<T>();
+        return otherwiseNode = create<T>(nodeOptions);
     }
 
     function catchImpl(handler: (item: T, error: TreeageError) => void) {
@@ -284,17 +288,25 @@ export function create<T>(): Node<T> {
 }
 
 
-function hasLabel(name: string): Predicate<any> {
-    function hasLabelImpl(item: any) {
-        return item.issue.labels.some((i: any) => i.name === name);
+function hasLabel(name: string): Predicate<StoredIssue> {
+    function hasLabelImpl(item: StoredIssue) {
+        return item.issue.labels.some((i: GitHubAPI.Label) => i.name === name);
     }
     hasLabelImpl.description = `[${name}]`;
 
     return hasLabelImpl;
 }
 
-function hasAnyLabel(...names: string[]): Predicate<any> {
-    function hasAnyLabelImpl(item: any) {
+function or<T>(...preds: Predicate<T>[]): Predicate<T> {
+    function result(item: T) {
+        return preds.some(p => p(item));
+    }
+    result.description = preds.map(p => p.description).join(" or ");
+    return result;
+}
+
+function hasAnyLabel(...names: string[]): Predicate<StoredIssue> {
+    function hasAnyLabelImpl(item: StoredIssue) {
         for (const name of names) {
             for (const lab of item.issue.labels) {
                 if (lab.name === name) return true;
@@ -312,15 +324,20 @@ function never() {
 }
 never.description = "(not reachable)";
 
-function isOpen(issue: any) {
+function isUnlabelled(issue: StoredIssue) {
+    return issue.issue.labels.length === 0;
+}
+isUnlabelled.description = "Unlabelled";
+
+function isOpen(issue: StoredIssue) {
     return issue.issue.state === "open";
 }
-isOpen.description = "Is open";
+isOpen.description = "Open";
 
-function isClosed(issue: any) {
+function isClosed(issue: StoredIssue) {
     return issue.issue.state === "closed";
 }
-isClosed.description = "Is closed";
+isClosed.description = "Closed";
 
 function throwImpossible() {
     debugger;
@@ -328,12 +345,17 @@ function throwImpossible() {
 }
 throwImpossible.description = "(assert)";
 
-function isPullRequest(issue: any) {
+function isPullRequest(issue: StoredIssue) {
     return !!issue.issue.pull_request;
 }
-isPullRequest.description = "Is PR";
+isPullRequest.description = "Pull Request";
 
-function needsMoreInfoButNotSuggestion(item: any) {
+function hasNoLabels(issue: StoredIssue) {
+    return !!issue.issue.pull_request;
+}
+isPullRequest.description = "Pull Request";
+
+function needsMoreInfoButNotSuggestion(item: StoredIssue) {
     return hasLabel("Needs More Info")(item) && !hasLabel("Suggestion")(item);
 }
 needsMoreInfoButNotSuggestion.description = "Needs More Info but not Suggestion";
@@ -349,16 +371,29 @@ function addReportListItem(issue: any, target: string[]) {
     target.push(` * ${nonLinkingReference(issue.number, issue.title)}`);
 }
 
-function unwindIssueToDate(issueToUnwind: StoredIssue, date: Date): StoredIssue | undefined {
-    // Hasn't been born yet
-    if (new Date(issueToUnwind.issue.created_at) > date) return undefined;
+function isLabelSynonymFor(oldName: string, currentName: string) {
+    if (oldName === currentName) return true;
+    switch (currentName) {
+        case "help wanted":
+            return oldName === "Accepting PRs";
+    }
+    return false;
+}
 
-    const issue: StoredIssue = JSON.parse(JSON.stringify(issueToUnwind));
+function unwindIssueToDate(issue: StoredIssue, date: Date): StoredIssue | undefined {
+    // Hasn't been born yet
+    if (new Date(issue.issue.created_at) > date) return undefined;
+
+    // Last event date is not in the future; we can skip doing any work
+    if (issue.events.every(e => new Date(e.created_at) <= date)) {
+        return issue;
+    }
 
     // For each thing that occurred after the specified date, attempt to undo it
     const eventTimeline = issue.events.slice().reverse();
     for (const event of eventTimeline) {
         if (new Date(event.created_at) > date) {
+            // Remove the event so we can maybe re-use this object
             issue.events.splice(issue.events.indexOf(event), 1);
             switch (event.event) {
                 case "closed":
@@ -368,7 +403,7 @@ function unwindIssueToDate(issueToUnwind: StoredIssue, date: Date): StoredIssue 
                     issue.issue.state = "closed";
                     break;
                 case "labeled":
-                    const match = issue.issue.labels.filter(x => x.name === event.label.name)[0];
+                    const match = issue.issue.labels.filter(x => isLabelSynonymFor(event.label.name, x.name))[0];
                     if (match !== undefined) {
                         issue.issue.labels.splice(issue.issue.labels.indexOf(match), 1);
                     } else {
@@ -479,6 +514,64 @@ function createTriager() {
     return { root, reportSections };
 }
 
+function createReportTriager() {
+    const opts: NodeOptions = { pathMode: "first" };
+    const root = create<StoredIssue>(opts).describe("All");
+
+    root.addPath(isPullRequest);
+
+    // Noise issues don't care about open/closed
+    const noise = create<StoredIssue>(opts).describe("Noise");
+    for (const lbl of ["Duplicate", "By Design", "Working as Intended", "Design Limitation", "Question", "External", "Unactionable", "Won't Fix"]) {
+        noise.addPath(hasLabel(lbl));
+    }
+    root.addPathTo(noise.groupingPredicate, noise);
+
+    // Bugs -> assign into open/closed
+    const bugs = root.addPath(hasLabel("Bug"));
+    bugs.addPath(isClosed);
+    bugs.addPath(isOpen);
+
+    // Suggestions
+    const suggestions = create<StoredIssue>(opts).describe("Suggestions");
+    for (const lbl of ["Suggestion", "In Discussion"]) {
+        suggestions.addPath(hasLabel(lbl));
+    }
+    root.addPathTo(suggestions.groupingPredicate, suggestions);
+
+    // Misc
+    const misc = create<StoredIssue>(opts).describe("Misc");
+    for (const lbl of ["Docs", "Website Logo", "Spec", "Website"]) {
+        misc.addPath(hasLabel(lbl));
+    }
+    root.addPathTo(misc.groupingPredicate, misc);
+
+    // Meta (i.e. should be untracked)
+    const meta = create<StoredIssue>(opts).describe("Meta");
+    for (const lbl of ["Design Notes", "Planning", "Infrastructure", "Discussion", "Breaking Change", "Fixed"]) {
+        meta.addPath(hasLabel(lbl));
+    }
+    root.addPathTo(meta.groupingPredicate, meta);
+
+    const unactionable = create<StoredIssue>(opts).describe("Unactionable");
+    for (const lbl of ["Needs More Info", "Needs Proposal"]) {
+        unactionable.addPath(hasLabel(lbl));
+    }
+    root.addPathTo(unactionable.groupingPredicate, unactionable);
+
+    // Unlabelled / NI / NMI
+    root.addPath(isUnlabelled);
+    root.addPath(hasLabel("VS Code Tracked"));
+    root.addPath(hasLabel("Needs Investigation"));
+
+    // ???
+    root.addPath(() => true).describe("Other").addAlwaysAction(a => {
+        // console.log("#" + a.issue.number + " - " + a.issue.title);
+    });
+
+    return root;
+}
+
 function runReport() {
     const { root, reportSections } = createTriager();
 
@@ -511,33 +604,57 @@ function getReportDates(): Date[] {
     return result;
 }
 
+function getAllParentedNodes(root: Node<unknown>) {
+    const results: [Node<unknown>, string][] = [];
+    recur(root as ImplementedNode<unknown>, "")
+    return results;
+
+    function recur(node: ImplementedNode<unknown>, prefix: string) {
+        results.push([node, prefix + node.description])
+        for (const p of node.paths) {
+            recur(p[1] as ImplementedNode<unknown>, prefix + node.description + ".");
+        }
+    }
+}
+
 function runHistoricalReport() {
     const dates = getReportDates();
     const rows = dates.map(date => ({
         date,
-        triager: createTriager()
+        triager: createReportTriager()
     }));
 
     const fileNames = fs.readdirSync(dataRoot);
     fileNames.sort();
 
+    let processCount = 0;
+    rows.reverse();
     for (const fn of fileNames) {
-        if (fn === "issue-index.json") continue;
-        const issue = JSON.parse(fs.readFileSync(path.join(dataRoot, fn), { encoding: "utf-8" }));
-        for (const row of rows) {
-            const oldIssue = unwindIssueToDate(issue, row.date);
-            if (oldIssue !== undefined) {
-                row.triager.root.process(oldIssue);
-            }
-        }
-    }
+        processCount++;
 
-    const columns = ["untriaged", "bugs", "noise", "mislabelled", "pendingSuggestions"];
-    console.log(["date", ...columns].join(","));
-    for (const row of rows) {
-        const csv = [row.date.toLocaleDateString(), ...columns.map(c => (row.triager.reportSections as any)[c].length)].join(",");
-        console.log(csv);
+        if (fn === "issue-index.json") continue;
+        let issue = JSON.parse(fs.readFileSync(path.join(dataRoot, fn), { encoding: "utf-8" }));
+        for (const row of rows) {
+            issue = unwindIssueToDate(issue, row.date);
+            if (issue === undefined) break;
+            row.triager.process(issue);
+        }
+
+        if (processCount % 1000 === 0) console.log(processCount);
     }
+    rows.reverse();
+
+    const colNodes = getAllParentedNodes(rows[0].triager);
+    const columns = colNodes.map(node => node[1]);
+    const report = [];
+    report.push(["date", ...columns].join(","));
+    for (const row of rows) {
+        const nodes = getAllParentedNodes(row.triager);
+        const cells = nodes.map(node => node[0].hitCount);
+        const csv = [row.date.toLocaleDateString(), ...cells].join(",");
+        report.push(csv);
+    }
+    fs.writeFileSync("historical-report.csv", report.join("\r\n"), { encoding: "utf-8" });
 }
 
 runHistoricalReport();

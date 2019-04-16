@@ -1,4 +1,5 @@
 data/
+data-old/
 bin/
 node_modules/
 *.csv
