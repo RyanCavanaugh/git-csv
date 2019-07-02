@@ -128,6 +128,8 @@ function parseTimestamp(t: string): number {
 }
 
 async function fetchIssueData(issue: GitHubAPI.Issue) {
+	if (issue.number === undefined) return;
+	
 	const filename = getDataFilePath(issue);
 
 	if (fs.existsSync(filename)) {

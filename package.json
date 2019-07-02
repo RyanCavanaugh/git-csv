@@ -7,12 +7,13 @@
     "git-csv": "duplicate-finder.js"
   },
   "dependencies": {
+    "@playlyfe/gql": "^2.6.1",
     "@types/node": "^11.10.5",
     "fs-extra": "^7.0.1"
   },
   "devDependencies": {
     "@types/fs-extra": "^5.0.5",
-    "typescript": "^3.3.3333"
+    "typescript": "^3.5.0-dev.20190521"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

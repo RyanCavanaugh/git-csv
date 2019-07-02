@@ -380,7 +380,7 @@ function isLabelSynonymFor(oldName: string, currentName: string) {
     return false;
 }
 
-function unwindIssueToDate(issue: StoredIssue, date: Date): StoredIssue | undefined {
+export function unwindIssueToDate(issue: StoredIssue, date: Date): StoredIssue | undefined {
     // Hasn't been born yet
     if (new Date(issue.issue.created_at) > date) return undefined;
 
@@ -388,6 +388,9 @@ function unwindIssueToDate(issue: StoredIssue, date: Date): StoredIssue | undefi
     if (issue.events.every(e => new Date(e.created_at) <= date)) {
         return issue;
     }
+
+    // Clone this to avoid mutation
+    issue = JSON.parse(JSON.stringify(issue));
 
     // For each thing that occurred after the specified date, attempt to undo it
     const eventTimeline = issue.events.slice().reverse();
@@ -657,4 +660,4 @@ function runHistoricalReport() {
     fs.writeFileSync("historical-report.csv", report.join("\r\n"), { encoding: "utf-8" });
 }
 
-runHistoricalReport();
+// runHistoricalReport();
