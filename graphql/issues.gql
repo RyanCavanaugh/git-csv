@@ -1,10 +1,10 @@
-{
+query GetRepoIssues($issuesPerPage: Int, $cursor: String = null){
   ...repoIssues
 }
 
 fragment repoIssues on Query {
   repository(owner: "Microsoft", name: "TypeScript") {
-    issues(first: 100, orderBy: {field: CREATED_AT, direction: ASC}) {
+    issues(first: $issuesPerPage, orderBy: {field: CREATED_AT, direction: ASC}, after: null) {
       pageInfo {
         hasNextPage
         endCursor
