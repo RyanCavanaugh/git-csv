@@ -255,7 +255,7 @@ export function or<T>(...preds: Predicate<T>[]): Predicate<T> {
     return result;
 }
 
-export function visualizeNodeTree(root: Node<any>): string {
+export function visualizeNodeTree(root: Node<any>, includeLineLabels = false): string {
     const seenNodes: Node<any>[] = [];
 
     const lines: string[] = [];
@@ -278,11 +278,19 @@ export function visualizeNodeTree(root: Node<any>): string {
             const target = path[1] as ImplementedNode<any>;
             const targetName = recordNode(target);
             const pred = path[0] as any;
-            lines.push(`    ${nodeName} -> ${targetName} [label="${pred.description || ""}"];`);
+            if (includeLineLabels) {
+                lines.push(`    ${nodeName} -> ${targetName} [label="${pred.description || ""}"];`);
+            } else {
+                lines.push(`    ${nodeName} -> ${targetName};`);
+            }
         }
         if (node.otherwiseNode) {
             const targetName = recordNode(node.otherwiseNode as ImplementedNode<any>);
-            lines.push(`    ${nodeName} -> ${targetName} [label="else"];`);
+            if (includeLineLabels) {
+                lines.push(`    ${nodeName} -> ${targetName} [label="else"];`);
+            } else {
+                lines.push(`    ${nodeName} -> ${targetName};`);
+            }
         }
 
         return nodeName;
