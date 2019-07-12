@@ -1,10 +1,12 @@
-query GetRepoIssues($issuesPerPage: Int, $cursor: String = null){
+# import timeline-item.gql
+
+query($owner: String!, $repoName: String!, $issuesPerPage: Int, $cursor: String = null) {
   ...repoIssues
 }
 
 fragment repoIssues on Query {
-  repository(owner: "Microsoft", name: "TypeScript") {
-    issues(first: $issuesPerPage, orderBy: {field: CREATED_AT, direction: ASC}, after: null) {
+  repository(owner: $owner, name: $repoName) {
+    issues(first: $issuesPerPage, orderBy: {field: CREATED_AT, direction: ASC}, after: $cursor) {
       pageInfo {
         hasNextPage
         endCursor
@@ -21,6 +23,7 @@ fragment repoIssues on Query {
 fragment issueSummary on Issue {
   id
   number
+  createdAt
   title
   url
   author { login }
@@ -32,67 +35,17 @@ fragment issueSummary on Issue {
   thumbsUps: reactions(content: THUMBS_UP) { totalCount }
   thumbsDowns: reactions(content: THUMBS_DOWN) { totalCount }
 
-  labels(first: 100) {
+  labels(first: 15) {
     edges {
       node { id, name, color }
     }
   }
-  timelineItems(first: 100) {
+  timelineItems(first: 50, itemTypes: [ISSUE_COMMENT, ASSIGNED_EVENT, CLOSED_EVENT, REOPENED_EVENT, LABELED_EVENT, UNLABELED_EVENT, LOCKED_EVENT, UNLOCKED_EVENT, MILESTONED_EVENT, DEMILESTONED_EVENT]) {
     pageInfo { endCursor, hasNextPage }
     edges {
       node {
         ...timelineItem
       }
     }
-  }
-}
-
-fragment timelineItem on IssueTimelineItem {
-  __typename
-  ... on IssueComment {
-    id
-    author { login }
-    body
-    createdAt
-    thumbsUps: reactions(content: THUMBS_UP) { totalCount }
-    thumbsDowns: reactions(content: THUMBS_DOWN) { totalCount }
-  }
-  ... on AssignedEvent {
-    createdAt
-    actor { login }
-    user { login }
-  }
-  ... on LabeledEvent {
-    createdAt
-    actor { login }
-    label { id, name, color }
-  }
-  ... on UnlabeledEvent {
-    createdAt
-    actor { login }
-    label { id, name, color }
-  }
-  ... on ClosedEvent  {
-    createdAt
-    actor { login }
-  }
-  ... on ReopenedEvent  {
-    createdAt
-    actor { login }
-  }
-  ... on MilestonedEvent {
-    createdAt
-    actor { login }
-    milestoneTitle
-  }
-  ... on DemilestonedEvent {
-    createdAt
-    actor { login }
-    milestoneTitle
-  }
-  ... on LockedEvent {
-    createdAt
-    actor { login }
-    lockReason
   }
 }

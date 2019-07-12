@@ -18,6 +18,7 @@
         "src/make-csv.ts",
         "src/types.d.ts",
         "src/github.d.ts",
-        "src/graphql-fetch.ts"
+        "src/graphql-fetch.ts",
+        "src/graphql-treeage.ts",
     ]
 }

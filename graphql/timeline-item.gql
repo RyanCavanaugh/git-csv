@@ -1,0 +1,50 @@
+
+fragment timelineItem on IssueTimelineItem {
+  __typename
+  ... on IssueComment {
+    id
+    author { login }
+    body
+    createdAt
+    thumbsUps: reactions(content: THUMBS_UP) { totalCount }
+    thumbsDowns: reactions(content: THUMBS_DOWN) { totalCount }
+  }
+  ... on AssignedEvent {
+    createdAt
+    actor { login }
+    user { login }
+  }
+  ... on LabeledEvent {
+    createdAt
+    actor { login }
+    label { id, name, color }
+  }
+  ... on UnlabeledEvent {
+    createdAt
+    actor { login }
+    label { id, name, color }
+  }
+  ... on ClosedEvent  {
+    createdAt
+    actor { login }
+  }
+  ... on ReopenedEvent  {
+    createdAt
+    actor { login }
+  }
+  ... on MilestonedEvent {
+    createdAt
+    actor { login }
+    milestoneTitle
+  }
+  ... on DemilestonedEvent {
+    createdAt
+    actor { login }
+    milestoneTitle
+  }
+  ... on LockedEvent {
+    createdAt
+    actor { login }
+    lockReason
+  }
+}
