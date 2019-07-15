@@ -384,14 +384,20 @@ function runReport() {
         if (issues.length === 0) {
             reportLines.push("(No issues are in this state)");
         } else {
-            reportLines.push(`<details>`);
-            reportLines.push("");
-            reportLines.push(`<summary>Complete list of ${issues.length} issues</summary>`);
-            reportLines.push("");
-            for (const item of issueList) {
-                reportLines.push(` * ${(listFunc || defaultLister)(item)}`)
+            if (issues.length > 20) {
+                reportLines.push(`<details>`);
+                reportLines.push("");
+                reportLines.push(`<summary>Complete list of ${issues.length} issues</summary>`);
+                reportLines.push("");
+                for (const item of issueList) {
+                    reportLines.push(` * ${(listFunc || defaultLister)(item)}`)
+                }
+                reportLines.push(`</details>`);
+            } else {
+                for (const item of issueList) {
+                    reportLines.push(` * ${(listFunc || defaultLister)(item)}`)
+                }
             }
-            reportLines.push(`</details>`);
         }
         reportLines.push("");
     }
