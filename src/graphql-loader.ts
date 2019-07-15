@@ -13,6 +13,7 @@ export interface Issue {
     thumbsDowns: number;
     labels: Label[];
     timelineItems: TimelineEvent[];
+    assignees: Login[];
 }
 
 export interface Milestone {
@@ -126,6 +127,7 @@ export function loadIssueFromFileContent(jsonObject: object): Issue {
 
     return {
         id, number, title, url, author, body, closed, locked, milestone,
+        assignees: json.assignees.edges.map((edge: any) => edge.node),
         createdAt: new Date(json.createdAt),
         thumbsUps: json.thumbsUps.totalCount,
         thumbsDowns: json.thumbsDowns.totalCount,

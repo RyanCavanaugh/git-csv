@@ -10,9 +10,10 @@ export type Action<T> = (item: T) => void;
 export interface Node<T> {
     /**
      * Creates a new node and add a predicated link to it.
+     * The path is taken if *any* predicate matches.
      * Returns the new node.
      */
-    addPath(predicate: Predicate<T>): Node<T>;
+    addPath(...predicates: Predicate<T>[]): Node<T>;
     /**
      * Adds a predicated link to the specified node.
      */
@@ -55,7 +56,7 @@ export interface Node<T> {
 }
 
 export type ImplementedNode<T> = Node<T> & {
-    paths: ReadonlyArray<[Predicate<T>, Node<T>]>;
+    paths: ReadonlyArray<[readonly Predicate<T>[], Node<T>]>;
     terminalActions: ReadonlyArray<Action<T>>;
     actions: ReadonlyArray<Action<T>>;
     otherwiseNode: Node<T> | undefined;
@@ -102,7 +103,7 @@ export function create<T>(nodeOptions?: NodeOptions): Node<T> {
         pathMode: "single",
         ...nodeOptions
     };
-    const paths: [Predicate<T>, Node<T>][] = [];
+    const paths: [readonly Predicate<T>[], Node<T>][] = [];
     const terminalActions: Action<T>[] = [];
     const actions: Action<T>[] = [];
     let catchHandler: undefined | FirstParameterOf<Node<T>["catch"]> = undefined;
@@ -122,9 +123,14 @@ export function create<T>(nodeOptions?: NodeOptions): Node<T> {
 
         let alreadyMatched = false;
         const matchedPaths: typeof paths = [];
+        const matchedPreds: Predicate<T>[] = [];
         for (const path of paths) {
-            if (path[0](item)) {
-                matchedPaths.push(path);
+            for (const pred of path[0]) {
+                if (pred(item)) {
+                    matchedPreds.push(pred);
+                    matchedPaths.push(path);
+                    break;
+                }
             }
         }
 
@@ -142,7 +148,7 @@ export function create<T>(nodeOptions?: NodeOptions): Node<T> {
                     if (matchedPaths.length !== 1) {
                         const err: TreeageError = {
                             type: "multi-path",
-                            predicates: matchedPaths.map(m => m[0])
+                            predicates: matchedPreds
                         };
                         const catchFunc = catchHandler || parentCatcher;
                         if (catchFunc) {
@@ -175,18 +181,18 @@ export function create<T>(nodeOptions?: NodeOptions): Node<T> {
         }
     }
 
-    function addPath(predicate: Predicate<T>): Node<T> {
+    function addPath(...predicates: [Predicate<T>, ...Predicate<T>[]]): Node<T> {
         const target = create<T>(nodeOptions);
-        if (predicate.description) {
-            target.describe(predicate.description);
+        if (predicates[0].description) {
+            target.describe(predicates[0].description);
         }
 
-        paths.push([predicate, target]);
+        paths.push([predicates, target]);
         return target;
     }
 
     function addPathTo(predicate: Predicate<T>, target: Node<T>) {
-        paths.push([predicate, target]);
+        paths.push([[predicate], target]);
     }
 
     function addTerminalAction(action: Action<T>) {
@@ -207,12 +213,12 @@ export function create<T>(nodeOptions?: NodeOptions): Node<T> {
     }
 
     function groupingPredicate(item: T) {
-        return paths.some(p => p[0](item));
+        return paths.some(p => p[0].some(p => p(item)));
     }
     Object.defineProperties(groupingPredicate, {
         description: {
             get() {
-                return paths.map(p => p[0].description || "??").join(" or ");
+                return paths.map(p => p[0][0].description || "??").join(" or ");
             }
         }
     });

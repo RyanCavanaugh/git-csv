@@ -51,6 +51,18 @@ function isClosed(issue: gq.Issue) {
 }
 isClosed.description = "Closed";
 
+function unmilestoned(issue: gq.Issue) {
+    return issue.milestone === null;
+}
+unmilestoned.description = "Not in a milestone";
+
+function inMilestone(name: string) {
+    const impl = function (issue: gq.Issue) {
+        return issue.milestone !== null && issue.milestone.title === name;
+    };
+    return impl;
+}
+
 function throwImpossible() {
     debugger;
     throw new Error("Should not be able to reach this tree point");
@@ -68,6 +80,9 @@ function needsMoreInfoButNotSuggestion(item: gq.Issue) {
 }
 needsMoreInfoButNotSuggestion.description = "Needs More Info but not Suggestion";
 
+/**
+ * Create a markdown link to an issue in a way that GitHub won't create a "referenced" backlink
+ */
 function nonLinkingReference(issueNumber: string | number, title: string) {
     return `[#${issueNumber} ${title}](https://github.com/Microsoft/TypeScript/${enc("issues")}/${issueNumber})`;
     function enc(s: string) {
@@ -149,50 +164,37 @@ export function unwindIssueToDate(issue: gq.Issue, date: Date): gq.Issue | undef
     return issue;
 }
 
-function createTriager() {
+function createOpenIssueTriager() {
     const root = create<gq.Issue>().describe("All");
 
-    const reportSections = {
-        bugs: [] as string[],
-        untriaged: [] as string[],
-        mislabelled: [] as string[],
-        pendingSuggestions: [] as string[],
-        untriagedSuggestions: [] as string[],
-        needsSuggestionLabel: [] as string[],
-        noise: [] as string[]
-    };
+    const mislabelled: [gq.Issue, any][] = [];
 
+    // If any issue is labelled incorrectly, it'll be processed here
     root.catch((item, err) => {
-        reportSections.mislabelled.push(...[
-            ` * ${nonLinkingReference(item.number, item.title)}`,
-            ...err.predicates.map(pred =>
-                `   * ${pred.description || pred.toString()}`
-            )
+        mislabelled.push([
+            item, err
         ]);
     });
 
-    root.addPath(isClosed).describe("Closed");
+    const closed = root.addPath(isClosed).describe("Closed");
     const open = root.otherwise().describe("Open");
     root.addTerminalAction(throwImpossible);
 
-    open.addPath(isPullRequest).describe("PRs");
+    const pullRequests = open.addPath(isPullRequest).describe("PRs");
+
     const issue = open.otherwise().describe("Open Issues");
 
-    issue.addPath(hasLabel("Bug")).describe("Bugs").addAlwaysAction(item => {
-        addReportListItem(item, reportSections.bugs);
-    });
+    const needsInvestigation = issue.addPath(hasLabel("Needs Investigation"));
+    const bugs = issue.addPath(hasLabel("Bug"));
 
-    const suggestionPendingLabels = ["Needs Proposal", "Awaiting More Feedback", "Needs More Info"];
-    const suggestion = issue.addPath(hasLabel("Suggestion")).describe("Suggestions");
-    const docket = suggestion.addPath(hasLabel("In Discussion")).describe("In Discussion");
-    suggestion.addPath(hasAnyLabel(...suggestionPendingLabels)).describe("Pending").addAlwaysAction((item) => {
-        addReportListItem(item, reportSections.pendingSuggestions);
-    });
-    suggestion.otherwise().describe("Untriaged Suggestion").addAlwaysAction((item) => {
-        addReportListItem(item, reportSections.untriagedSuggestions);
-    });
+    const noMilestoneBugs = bugs.addPath(unmilestoned);
+    const backlogBugs = bugs.addPath(inMilestone("Backlog"));
 
-    issue.addPath(hasLabel("Needs Investigation"));
+    const suggestion = issue.addPath(hasLabel("Suggestion"));
+    const docket = suggestion.addPath(hasLabel("In Discussion"));
+    const amf = suggestion.addPath(hasLabel("Awaiting More Feedback"));
+    const needsInfo = suggestion.addPath(hasAnyLabel("Needs Proposal", "Needs More Info"));
+    const unsortedSuggestions = suggestion.otherwise().describe("Untriaged Suggestion");
 
     const meta = create<gq.Issue>().describe("Meta, Infra, & Notes");
     meta.addPath(hasLabel("Meta-Issue"));
@@ -209,27 +211,45 @@ function createTriager() {
     docs.addPath(hasLabel("Docs"));
     issue.addPathTo(docs.groupingPredicate, docs);
 
-    const noise = create<gq.Issue>().describe("Noise");
-    const noiseLabels = ["Question", "Working as Intended", "Design Limitation", "Duplicate", "By Design"];
-    noiseLabels.forEach(label => noise.addPath(hasLabel(label)));
-    issue.addPathTo(noise.groupingPredicate, noise);
-    noise.addAlwaysAction(item => {
-        addReportListItem(item, reportSections.noise);
-    });
-
-    issue.addPath(hasLabel("External"));
+    const noise = issue.addPath(hasAnyLabel("Question", "Working as Intended", "Design Limitation", "Duplicate", "By Design", "External")).describe("Noise");
 
     issue.addPath(needsMoreInfoButNotSuggestion);
 
-    const untriaged = issue.otherwise().describe("Untriaged");
-    untriaged.addPath(hasAnyLabel("Needs Proposal", "In Discussion")).addAlwaysAction(item => {
-        addReportListItem(item, reportSections.needsSuggestionLabel);
-    });
-    untriaged.addTerminalAction(item => {
-        addReportListItem(item, reportSections.untriaged);
-    });
+    const missingSuggestionLabel = issue.addPath(i => hasAnyLabel("Needs Proposal", "In Discussion")(i) && !hasLabel("Suggestion")(i));
 
-    return { root, reportSections };
+    const untriaged = issue.otherwise().describe("Untriaged");
+
+    const reportItems = {
+        bugs,
+        backlogBugs,
+        noMilestoneBugs,
+        pullRequests,
+        closed,
+        open,
+        noise,
+        missingSuggestionLabel,
+        needsInvestigation,
+        untriaged,
+        docket,
+        amf,
+        needsInfo,
+        unsortedSuggestions
+    };
+    const lists: { [K in keyof typeof reportItems]: gq.Issue[] } = {} as any;
+
+    for (const k of Object.keys(reportItems) as (keyof typeof reportItems)[]) {
+        reportItems[k].addTerminalAction(item => {
+            lists[k] = lists[k] || [];
+            lists[k].push(item);
+        })
+    }
+
+    return ({
+        root,
+        categories: lists,
+        reportItems,
+        mislabelled
+    });
 }
 
 function createReportTriager() {
@@ -238,7 +258,7 @@ function createReportTriager() {
 
     root.addPath(isPullRequest);
 
-    // Noise issues don't care about open/closed
+    // Noise issues don't care about open/closed state
     const noise = create<gq.Issue>(opts).describe("Noise");
     for (const lbl of ["Duplicate", "By Design", "Working as Intended", "Design Limitation", "Question", "External", "Unactionable", "Won't Fix"]) {
         noise.addPath(hasLabel(lbl));
@@ -290,27 +310,95 @@ function createReportTriager() {
     return root;
 }
 
+function groupBy<T>(arr: readonly T[], sel: (item: T) => string): [string, T[]][] {
+    const groups: [string, T[]][] = [];
+    for (const item of arr) {
+        const g = sel(item);
+        const existing = groups.filter(gr => gr[0] === g)[0];
+        if (existing) {
+            existing[1].push(item);
+        } else {
+            groups.push([g, [item]]);
+        }
+    }
+    return groups;
+}
+
 function runReport() {
-    const { root, reportSections } = createTriager();
+    const { root, categories, mislabelled } = createOpenIssueTriager();
 
     const fileNames = fs.readdirSync(dataRoot);
     for (const fn of fileNames) {
-        if (fn === "issue-index.json") continue;
-        const issue = gq.loadIssueFromFileContent(JSON.parse(fs.readFileSync(path.join(dataRoot, fn), { encoding: "utf-8" })));
-        debugger;
+        const fileContent = fs.readFileSync(path.join(dataRoot, fn), { encoding: "utf-8" });
+        const issue = gq.loadIssueFromFileContent(JSON.parse(fileContent));
         root.process(issue);
     }
 
     fs.writeFileSync("viz.txt", visualizeNodeTree(root), { encoding: "utf-8" });
 
     const reportLines: string[] = [];
-    for (const k of Object.keys(reportSections)) {
-        const list = (reportSections as any)[k];
-        reportLines.push(` ## ${k} (${list.length})`);
-        reportLines.push(...list);
+
+    reportLines.push("# Needs Attention");
+
+    reportSection(categories.untriaged, "Untriaged", "These issues need to be investigated and labelled");
+    reportSection(mislabelled.map(m => m[0]), "Mislabelled", "These have incorrect label sets applied to them");
+    reportSection(categories.noMilestoneBugs, "Unmilestoned Bugs", "These bugs need to be put into a milestone");
+    reportSection(categories.bugs.filter(b => b.assignees.length === 0), "Unassigned Bugs", "These bugs need an assignee");
+
+    reportLines.push("# Scheduled Bug Fixes");
+    reportLines.push("");
+    reportLines.push("These bugs have been assigned to a developer in an upcoming milestone");
+    reportLines.push("");
+
+    const bugsByMilestone = groupBy(categories.bugs.filter(b => b.milestone !== null && b.assignees.length > 0), item => item.milestone!.title);
+    bugsByMilestone.sort((a, b) => b[0] > a[0] ? -1 : 1);
+    for (const milestone of bugsByMilestone) {
+        reportSection(milestone[1], milestone[0], "");
+    }    
+
+    reportLines.push("# Backlog");
+
+    reportSection(categories.backlogBugs, "Bug Backlog", "These bugs are in the backlog milestone, sorted by 👍s", (i1, i2) => i2.thumbsUps - i1.thumbsUps);
+    reportSection(categories.needsInvestigation, "Needs Investigation", "These issues need to be investigated to determine next steps", (i1, i2) => i2.thumbsUps - i1.thumbsUps);
+
+    reportLines.push("# Suggestion");
+
+    reportSection(categories.unsortedSuggestions, "Unsorted Issues", "These need a sub-label", (i1, i2) => i2.thumbsUps - i1.thumbsUps);
+    reportSection(categories.amf, "Awaiting More Feedback", "Suggestions we're collecting support for", (i1, i2) => i2.thumbsUps - i1.thumbsUps);
+    reportSection(categories.docket, "In Discussion", "Suggestions that need review for possible inclusion", (i1, i2) => i2.thumbsUps - i1.thumbsUps);
+    
+    for (const e of mislabelled) {
+        debugger;
+        console.log(`# ${e[0].number} ${e[0].title}: ${JSON.stringify(e[1])}`);
+    }
+
+    fs.writeFileSync("report.md", reportLines.join("\r\n"), { encoding: "utf-8" });
+
+    function reportSection(issues: readonly gq.Issue[], header: string, description: string, sortFunc?: (i1: gq.Issue, i2: gq.Issue) => number, listFunc?: (issue: gq.Issue) => string) {
+        const issueList = [...issues];
+        issueList.sort(sortFunc || ((i1, i2) => i2.number - i1.number));
+        reportLines.push(` ## ${header} (${issues.length})`);
+        reportLines.push("");
+        reportLines.push(description);
+        reportLines.push("");
+        if (issues.length === 0) {
+            reportLines.push("(No issues are in this state)");
+        } else {
+            reportLines.push(`<details>`);
+            reportLines.push("");
+            reportLines.push(`<summary>Complete list of ${issues.length} issues</summary>`);
+            reportLines.push("");
+            for (const item of issueList) {
+                reportLines.push(` * ${(listFunc || defaultLister)(item)}`)
+            }
+            reportLines.push(`</details>`);
+        }
         reportLines.push("");
     }
-    fs.writeFileSync("report.md", reportLines.join("\r\n"), { encoding: "utf-8" });
+
+    function defaultLister(issue: gq.Issue) {
+        return nonLinkingReference(issue.number, issue.title);
+    }
 }
 
 function getReportDates(): Date[] {
