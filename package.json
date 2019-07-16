@@ -15,6 +15,7 @@
   "devDependencies": {
     "@types/axios": "^0.14.0",
     "@types/fs-extra": "^5.0.5",
+    "@types/lodash": "^4.14.136",
     "typescript": "^3.5.0-dev.20190521"
   },
   "scripts": {

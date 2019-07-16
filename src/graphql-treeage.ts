@@ -2,6 +2,7 @@ import fs = require("fs");
 import path = require("path");
 import csv = require("./csv");
 import gq = require("./graphql-loader");
+import _ = require("lodash");
 import { Predicate, create, NodeOptions, visualizeNodeTree } from "./treeage-core";
 
 import CSV = csv.CSV;
@@ -328,9 +329,11 @@ function runReport() {
     const { root, categories, mislabelled } = createOpenIssueTriager();
 
     const fileNames = fs.readdirSync(dataRoot);
+    const allIssues: gq.Issue[] = [];
     for (const fn of fileNames) {
         const fileContent = fs.readFileSync(path.join(dataRoot, fn), { encoding: "utf-8" });
         const issue = gq.loadIssueFromFileContent(JSON.parse(fileContent));
+        allIssues.push(issue);
         root.process(issue);
     }
 
@@ -347,6 +350,14 @@ function runReport() {
 
     reportLines.push("# Scheduled Bug Fixes");
     reportLines.push("");
+    reportLines.push("## Milestone / Assignee Breakdown");
+    reportLines.push("");
+    reportLines.push("This table includes all issues, not just bugs.");
+    reportLines.push("");
+    table(allIssues.filter(b => !b.closed && b.milestone !== null), issue => issue.milestone!.title, issue => issue.assignees[0] ? issue.assignees[0].login : "(no one)", "Assignee");
+    reportLines.push("");
+
+    
     reportLines.push("These bugs have been assigned to a developer in an upcoming milestone");
     reportLines.push("");
 
@@ -367,14 +378,30 @@ function runReport() {
     reportSection(categories.amf, "Awaiting More Feedback", "Suggestions we're collecting support for", (i1, i2) => i2.thumbsUps - i1.thumbsUps);
     reportSection(categories.docket, "In Discussion", "Suggestions that need review for possible inclusion", (i1, i2) => i2.thumbsUps - i1.thumbsUps);
     
-    for (const e of mislabelled) {
-        debugger;
-        console.log(`# ${e[0].number} ${e[0].title}: ${JSON.stringify(e[1])}`);
-    }
-
     fs.writeFileSync("report.md", reportLines.join("\r\n"), { encoding: "utf-8" });
 
+    function table(issues: readonly gq.Issue[], columnSelector: (i: gq.Issue) => string, rowSelector: (i: gq.Issue) => string, origin: string) {
+        const columnValues = issues.map(columnSelector);
+        const rowValues = issues.map(rowSelector);
+        const columns = _.uniq(columnValues);
+        const rows = _.uniq(rowValues);
+        reportLines.push(`|${origin} | ${columns.join(' | ')}|`);
+        reportLines.push(`|----------|${columns.map(() => '------').join('|')}|`);
+        for (const row of rows) {
+            let line = `|${row}`
+            for (let col = 0; col < columns.length; col++) {
+                let count = 0;
+                for (let i = 0; i < columnValues.length; i++) {
+                    if (rowValues[i] === row && columnValues[i] === columns[col]) count++;
+                }
+                line = line + '|' + count;
+            }
+            reportLines.push(line + '|');
+        }
+    }
+
     function reportSection(issues: readonly gq.Issue[], header: string, description: string, sortFunc?: (i1: gq.Issue, i2: gq.Issue) => number, listFunc?: (issue: gq.Issue) => string) {
+        if (issues === undefined) return;
         const issueList = [...issues];
         issueList.sort(sortFunc || ((i1, i2) => i2.number - i1.number));
         reportLines.push(` ## ${header} (${issues.length})`);
