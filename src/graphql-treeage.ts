@@ -1,3 +1,4 @@
+import axios = require("axios");
 import fs = require("fs");
 import path = require("path");
 import csv = require("./csv");
@@ -57,7 +58,7 @@ function unmilestoned(issue: gq.Issue) {
 }
 unmilestoned.description = "Not in a milestone";
 
-function inMilestone(name: string) {
+function isInMilestone(name: string) {
     const impl = function (issue: gq.Issue) {
         return issue.milestone !== null && issue.milestone.title === name;
     };
@@ -85,7 +86,7 @@ needsMoreInfoButNotSuggestion.description = "Needs More Info but not Suggestion"
  * Create a markdown link to an issue in a way that GitHub won't create a "referenced" backlink
  */
 function nonLinkingReference(issueNumber: string | number, title: string) {
-    return `[#${issueNumber} ${title}](https://github.com/Microsoft/TypeScript/${enc("issues")}/${issueNumber})`;
+    return `[#${issueNumber} ${title.replace(/</g, "&lt;").replace(/>/g, "&gt;")}](https://github.com/Microsoft/TypeScript/${enc("issues")}/${issueNumber})`;
     function enc(s: string) {
         return s.split("").map(c => "%" + c.charCodeAt(0).toString(16)).join("");
     }
@@ -189,12 +190,14 @@ function createOpenIssueTriager() {
     const bugs = issue.addPath(hasLabel("Bug"));
 
     const noMilestoneBugs = bugs.addPath(unmilestoned);
-    const backlogBugs = bugs.addPath(inMilestone("Backlog"));
+    const backlogBugs = bugs.addPath(isInMilestone("Backlog"));
 
     const suggestion = issue.addPath(hasLabel("Suggestion"));
     const docket = suggestion.addPath(hasLabel("In Discussion"));
     const amf = suggestion.addPath(hasLabel("Awaiting More Feedback"));
     const needsInfo = suggestion.addPath(hasAnyLabel("Needs Proposal", "Needs More Info"));
+    const acceptingPRs = suggestion.addPath(isInMilestone("Backlog"));
+    const waitingForTC39 = suggestion.addPath(hasLabel("Waiting for TC39"));
     const unsortedSuggestions = suggestion.otherwise().describe("Untriaged Suggestion");
 
     const meta = create<gq.Issue>().describe("Meta, Infra, & Notes");
@@ -234,7 +237,9 @@ function createOpenIssueTriager() {
         docket,
         amf,
         needsInfo,
-        unsortedSuggestions
+        acceptingPRs,
+        unsortedSuggestions,
+        waitingForTC39
     };
     const lists: { [K in keyof typeof reportItems]: gq.Issue[] } = {} as any;
 
@@ -377,7 +382,30 @@ function runReport() {
     reportSection(categories.unsortedSuggestions, "Unsorted Issues", "These need a sub-label", (i1, i2) => i2.thumbsUps - i1.thumbsUps);
     reportSection(categories.amf, "Awaiting More Feedback", "Suggestions we're collecting support for", (i1, i2) => i2.thumbsUps - i1.thumbsUps);
     reportSection(categories.docket, "In Discussion", "Suggestions that need review for possible inclusion", (i1, i2) => i2.thumbsUps - i1.thumbsUps);
-    
+
+    const repoRoot = path.join(__dirname, "../");
+    const token = fs.readFileSync(path.join(repoRoot, "../api-auth-token.txt"), { encoding: "utf-8" });
+    axios.default("https://api.github.com/gists/9f55d65418803be0e4e3371418ad534d", {
+        headers: {
+            "Authorization": `bearer ${token}`,
+            "User-Agent": "RyanCavanaugh/git-csv"
+        },
+        method: "PATCH",
+        data: {
+            description: `Bug Report ${(new Date()).toLocaleDateString()}`,
+            files: {
+                "report": {
+                    filename: "report.md",
+                    content: reportLines.join("\n")
+                }
+            }
+        }
+    }).then(() => {
+        console.log("gist updated");
+    }).catch(err => {
+        console.error(err);
+    })
+
     fs.writeFileSync("report.md", reportLines.join("\r\n"), { encoding: "utf-8" });
 
     function table(issues: readonly gq.Issue[], columnSelector: (i: gq.Issue) => string, rowSelector: (i: gq.Issue) => string, origin: string) {
@@ -404,7 +432,7 @@ function runReport() {
         if (issues === undefined) return;
         const issueList = [...issues];
         issueList.sort(sortFunc || ((i1, i2) => i2.number - i1.number));
-        reportLines.push(` ## ${header} (${issues.length})`);
+        reportLines.push(`## ${header} (${issues.length})`);
         reportLines.push("");
         reportLines.push(description);
         reportLines.push("");
@@ -413,12 +441,12 @@ function runReport() {
         } else {
             if (issues.length > 20) {
                 reportLines.push(`<details>`);
-                reportLines.push("");
                 reportLines.push(`<summary>Complete list of ${issues.length} issues</summary>`);
                 reportLines.push("");
                 for (const item of issueList) {
                     reportLines.push(` * ${(listFunc || defaultLister)(item)}`)
                 }
+                reportLines.push("");
                 reportLines.push(`</details>`);
             } else {
                 for (const item of issueList) {

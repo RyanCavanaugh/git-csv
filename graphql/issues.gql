@@ -6,7 +6,7 @@ query($owner: String!, $repoName: String!, $issuesPerPage: Int, $cursor: String 
 
 fragment repoIssues on Query {
   repository(owner: $owner, name: $repoName) {
-    issues(first: $issuesPerPage, orderBy: {field: CREATED_AT, direction: ASC}, after: $cursor) {
+    issues(first: $issuesPerPage, states: OPEN, orderBy: {field: CREATED_AT, direction: ASC}, after: $cursor) {
       pageInfo {
         hasNextPage
         endCursor
