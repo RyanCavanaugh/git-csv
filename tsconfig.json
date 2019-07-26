@@ -6,6 +6,8 @@
 
         "outDir": "bin",
 
+        "jsx": "react",
+
         "strict": true,
         "noImplicitReturns": true,
         "noEmitOnError": true,
@@ -19,6 +21,6 @@
         "src/types.d.ts",
         "src/github.d.ts",
         "src/graphql-fetch.ts",
-        "src/graphql-treeage.ts",
+        "src/graphql-treeage.tsx",
     ]
 }

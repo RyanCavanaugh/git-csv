@@ -4,6 +4,8 @@ import path = require("path");
 import csv = require("./csv");
 import gq = require("./graphql-loader");
 import _ = require("lodash");
+import React = require("react");
+import ReactDOM = require("react-dom/server");
 import { Predicate, create, NodeOptions, visualizeNodeTree } from "./treeage-core";
 
 import CSV = csv.CSV;
@@ -330,6 +332,87 @@ function groupBy<T>(arr: readonly T[], sel: (item: T) => string): [string, T[]][
     return groups;
 }
 
+function reactReport() {
+    function column(title: Column[0], sel: Column[1]): Column {
+        return [title, sel];
+    }
+    type Column = readonly [string, (item: gq.Issue) => string | number | JSX.Element];
+
+    const Columns = {
+        ID: column("ID", i => <a href={i.url}>#{i.number}</a>),
+        Title: column("Title", i => <a href={i.url}>{i.title}</a>),
+        Upvotes: column("👍", i => i.thumbsUps),
+        Comments: column("Comments", i => i.timelineItems.filter(e => e.type === "IssueComment").length),
+        LastActivity: column("Last Activity", i => (i.timelineItems[i.timelineItems.length - 1] || i).createdAt.toLocaleDateString()),
+        Labels: column("Labels", i => i.labels.length ? i.labels.map(l => l.name).join(", ") : "(None)"),
+        Milestone: column("Milestone", i => i.milestone === null ? "(None)" : i.milestone.title),
+        Assignee: column("Assignee", i => i.assignees.length === 0 ? "(No one)" : i.assignees[0].login),
+        Domain: column("Domain", i => {
+            const domains = i.labels.filter(l => l.name.startsWith("Domain:"));
+            if (domains.length > 0) {
+                return domains.map(d => d.name.substr("Domain: ".length)).join(", ");
+            }
+            return "None";
+        })
+    };
+
+    const { root, categories, mislabelled } = createOpenIssueTriager();
+
+    const fileNames = fs.readdirSync(dataRoot);
+    const allIssues: gq.Issue[] = [];
+    for (const fn of fileNames) {
+        const fileContent = fs.readFileSync(path.join(dataRoot, fn), { encoding: "utf-8" });
+        const issue = gq.loadIssueFromFileContent(JSON.parse(fileContent));
+        allIssues.push(issue);
+        root.process(issue);
+    }
+
+    function BugListing({ issues }: { issues: ReadonlyArray<gq.Issue> }) {
+        return <></>;
+    }
+
+    function BugTable({ issues, columns }: { issues: ReadonlyArray<gq.Issue>, columns: Column[] }) {
+        return (<table>
+            <thead>
+                <tr>
+                    {columns.map((c, i) => <th key={i}>{c[0]}</th>)}
+                </tr>
+            </thead>
+            <tbody>
+                {issues.map(issue => <tr key={issue.number}>
+                    {columns.map((c, i) => <td key={i}>{c[1](issue)}</td>)}
+                </tr>)}
+            </tbody>
+        </table>);
+    }
+
+    function Report() {
+        return <html>
+            <head>
+                <title>TypeScript Bug Report, {(new Date()).toLocaleDateString()}</title>
+            </head>
+            <body>
+                <p>There are currently ${allIssues.length} open issues.</p>
+
+                <h2>Mislabelled</h2>
+                <BugTable issues={mislabelled.map(m => m[0])} columns={[
+                    Columns.ID, Columns.Title, Columns.Labels, Columns.Milestone, Columns.Assignee
+                ]} />
+
+                <h2>Bugs</h2>
+                <BugTable issues={categories.bugs} columns={[
+                    Columns.ID, Columns.Title, Columns.Domain, Columns.Upvotes, Columns.Comments, Columns.LastActivity
+                ]} />
+
+                <p>This report was generated on {(new Date()).toLocaleDateString("en-US")} at {(new Date()).toLocaleTimeString("en-US")}</p>
+            </body>
+        </html>
+    }
+
+    fs.writeFileSync("report.html", ReactDOM.renderToStaticMarkup(<Report />), { encoding: "utf-8" });
+}
+
+
 function runReport() {
     const { root, categories, mislabelled } = createOpenIssueTriager();
 
@@ -362,7 +445,7 @@ function runReport() {
     table(allIssues.filter(b => !b.closed && b.milestone !== null), issue => issue.milestone!.title, issue => issue.assignees[0] ? issue.assignees[0].login : "(no one)", "Assignee");
     reportLines.push("");
 
-    
+
     reportLines.push("These bugs have been assigned to a developer in an upcoming milestone");
     reportLines.push("");
 
@@ -370,7 +453,7 @@ function runReport() {
     bugsByMilestone.sort((a, b) => b[0] > a[0] ? -1 : 1);
     for (const milestone of bugsByMilestone) {
         reportSection(milestone[1], milestone[0], "");
-    }    
+    }
 
     reportLines.push("# Backlog");
 
@@ -516,7 +599,8 @@ function runHistoricalReport() {
 
 // runHistoricalReport();
 
-runReport();
+// runReport();
+reactReport();
 
 function assertNever(x: never) {
     throw new Error(`Impossible value ${x} observed`);
