@@ -217,7 +217,7 @@ function createOpenIssueTriager() {
     docs.addPath(hasLabel("Docs"));
     issue.addPathTo(docs.groupingPredicate, docs);
 
-    const noise = issue.addPath(hasAnyLabel("Question", "Working as Intended", "Design Limitation", "Duplicate", "By Design", "External")).describe("Noise");
+    const noise = issue.addPath(hasAnyLabel("Question", "Working as Intended", "Design Limitation", "Duplicate", "By Design", "External", "Unactionable", "Won't Fix")).describe("Noise");
 
     issue.addPath(needsMoreInfoButNotSuggestion);
 
@@ -268,7 +268,7 @@ function createReportTriager() {
 
     // Noise issues don't care about open/closed state
     const noise = create<gq.Issue>(opts).describe("Noise");
-    for (const lbl of ["Duplicate", "By Design", "Working as Intended", "Design Limitation", "Question", "External", "Unactionable", "Won't Fix"]) {
+    for (const lbl of ["Unactionable", "Duplicate", "By Design", "Working as Intended", "Design Limitation", "Question", "External", "Unactionable", "Won't Fix"]) {
         noise.addPath(hasLabel(lbl));
     }
     root.addPathTo(noise.groupingPredicate, noise);
@@ -332,6 +332,30 @@ function groupBy<T>(arr: readonly T[], sel: (item: T) => string): [string, T[]][
     return groups;
 }
 
+function sorted<T>(arr: readonly T[], ...keyFuncs: Array<(arg: T) => any>): T[] {
+    const res = arr.slice();
+    res.sort((a, b) => {
+        let i = 0;
+        while (i < keyFuncs.length) {
+            const ak = keyFuncs[i](a);
+            const bk = keyFuncs[i](b);
+            if (ak > bk) return 1;
+            if (ak < bk) return -1;
+            i++;
+        }
+        return 0;
+    });
+    return res;
+}
+
+function dateToString(d: Date) {
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
+}
+
+function lastActivity(issue: gq.Issue) {
+    return (issue.timelineItems[issue.timelineItems.length - 1] || issue).createdAt;
+}
+
 function reactReport() {
     function column(title: Column[0], sel: Column[1]): Column {
         return [title, sel];
@@ -343,7 +367,7 @@ function reactReport() {
         Title: column("Title", i => <a href={i.url}>{i.title}</a>),
         Upvotes: column("👍", i => i.thumbsUps),
         Comments: column("Comments", i => i.timelineItems.filter(e => e.type === "IssueComment").length),
-        LastActivity: column("Last Activity", i => (i.timelineItems[i.timelineItems.length - 1] || i).createdAt.toLocaleDateString()),
+        LastActivity: column("Last Activity", i => dateToString(lastActivity(i))),
         Labels: column("Labels", i => i.labels.length ? i.labels.map(l => l.name).join(", ") : "(None)"),
         Milestone: column("Milestone", i => i.milestone === null ? "(None)" : i.milestone.title),
         Assignee: column("Assignee", i => i.assignees.length === 0 ? "(No one)" : i.assignees[0].login),
@@ -367,10 +391,6 @@ function reactReport() {
         root.process(issue);
     }
 
-    function BugListing({ issues }: { issues: ReadonlyArray<gq.Issue> }) {
-        return <></>;
-    }
-
     function BugTable({ issues, columns }: { issues: ReadonlyArray<gq.Issue>, columns: Column[] }) {
         return (<table>
             <thead>
@@ -387,20 +407,65 @@ function reactReport() {
     }
 
     function Report() {
+        const bugsByMilestone = groupBy(categories.bugs, i => i.milestone ? i.milestone.title : "(No Milestone)");
+
         return <html>
             <head>
                 <title>TypeScript Bug Report, {(new Date()).toLocaleDateString()}</title>
             </head>
             <body>
-                <p>There are currently ${allIssues.length} open issues.</p>
+                <p>There are currently {allIssues.length} open issues.</p>
 
-                <h2>Mislabelled</h2>
+                <h2>Needs Attention</h2>
+
+                <h3>Mislabelled ({mislabelled.length})</h3>
                 <BugTable issues={mislabelled.map(m => m[0])} columns={[
                     Columns.ID, Columns.Title, Columns.Labels, Columns.Milestone, Columns.Assignee
                 ]} />
 
-                <h2>Bugs</h2>
-                <BugTable issues={categories.bugs} columns={[
+                <h3>Missing "Suggestion" Label? ({categories.missingSuggestionLabel.length})</h3>
+                <BugTable issues={categories.missingSuggestionLabel} columns={[Columns.ID, Columns.Title]} />
+
+
+                <h3>Unlabelled ({categories.untriaged.length})</h3>
+                <BugTable issues={categories.untriaged} columns={[
+                    Columns.ID, Columns.Title, Columns.Domain, Columns.Upvotes, Columns.Comments, Columns.LastActivity
+                ]} />
+
+                <h3>Bugs Without Milestones ({categories.noMilestoneBugs.length})</h3>
+                <BugTable issues={categories.noMilestoneBugs} columns={[
+                    Columns.ID, Columns.Title, Columns.Domain, Columns.Upvotes, Columns.Comments, Columns.LastActivity
+                ]} />
+
+                <h2>Scheduled Bugs ({categories.bugs.length})</h2>
+                {
+                    bugsByMilestone.map((bbm, i) => <React.Fragment key={i}>
+                        <h3>{bbm[0]}</h3>
+                        <BugTable issues={bbm[1]} columns={[
+                            Columns.ID, Columns.Title, Columns.Domain, Columns.Assignee, Columns.LastActivity
+                        ]} />
+                    </React.Fragment>)
+                }
+
+                <h2>Backlog Bugs ({categories.backlogBugs.length})</h2>
+                <BugTable issues={sorted(categories.backlogBugs, i => -i.thumbsUps, i => -lastActivity(i))} columns={[
+                    Columns.ID, Columns.Title, Columns.Domain, Columns.Upvotes, Columns.Comments, Columns.LastActivity
+                ]} />
+
+                <h2>Suggestions</h2>
+
+                <h3>In Discussion ({categories.docket.length})</h3>
+                <BugTable issues={sorted(categories.docket, i => -i.thumbsUps, i => -lastActivity(i))} columns={[
+                    Columns.ID, Columns.Title, Columns.Domain, Columns.Upvotes, Columns.Comments, Columns.LastActivity
+                ]} />
+
+                <h3>Awaiting More Feedback ({categories.amf.length})</h3>
+                <BugTable issues={sorted(categories.amf, i => -i.thumbsUps, i => -lastActivity(i))} columns={[
+                    Columns.ID, Columns.Title, Columns.Domain, Columns.Upvotes, Columns.Comments, Columns.LastActivity
+                ]} />
+
+                <h3>Needs More Info ({categories.needsInfo.length})</h3>
+                <BugTable issues={categories.needsInfo} columns={[
                     Columns.ID, Columns.Title, Columns.Domain, Columns.Upvotes, Columns.Comments, Columns.LastActivity
                 ]} />
 
@@ -411,7 +476,6 @@ function reactReport() {
 
     fs.writeFileSync("report.html", ReactDOM.renderToStaticMarkup(<Report />), { encoding: "utf-8" });
 }
-
 
 function runReport() {
     const { root, categories, mislabelled } = createOpenIssueTriager();
