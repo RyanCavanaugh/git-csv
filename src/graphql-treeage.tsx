@@ -357,16 +357,16 @@ function lastActivity(issue: gq.Issue) {
 }
 
 function reactReport() {
-    function column(title: Column[0], sel: Column[1]): Column {
-        return [title, sel];
+    function column(title: Column[0], sel: Column[1], style: Column[2] = ""): Column {
+        return [title, sel, style];
     }
-    type Column = readonly [string, (item: gq.Issue) => string | number | JSX.Element];
+    type Column = readonly [string, ((item: gq.Issue) => (string | number | JSX.Element)), string];
 
     const Columns = {
         ID: column("ID", i => <a href={i.url}>#{i.number}</a>),
         Title: column("Title", i => <a href={i.url}>{i.title}</a>),
-        Upvotes: column("👍", i => i.thumbsUps),
-        Comments: column("Comments", i => i.timelineItems.filter(e => e.type === "IssueComment").length),
+        Upvotes: column("👍", i => i.thumbsUps, "numeric"),
+        Comments: column("Comments", i => i.timelineItems.filter(e => e.type === "IssueComment").length, "numeric"),
         LastActivity: column("Last Activity", i => dateToString(lastActivity(i))),
         Labels: column("Labels", i => i.labels.length ? i.labels.map(l => l.name).join(", ") : "(None)"),
         Milestone: column("Milestone", i => i.milestone === null ? "(None)" : i.milestone.title),
@@ -395,12 +395,12 @@ function reactReport() {
         return (<table>
             <thead>
                 <tr>
-                    {columns.map((c, i) => <th key={i}>{c[0]}</th>)}
+                    {columns.map((c, i) => <th key={i} className={c[2]}>{c[0]}</th>)}
                 </tr>
             </thead>
             <tbody>
                 {issues.map(issue => <tr key={issue.number}>
-                    {columns.map((c, i) => <td key={i}>{c[1](issue)}</td>)}
+                    {columns.map((c, i) => <td key={i} className={c[2]}>{c[1](issue)}</td>)}
                 </tr>)}
             </tbody>
         </table>);
@@ -412,6 +412,7 @@ function reactReport() {
         return <html>
             <head>
                 <title>TypeScript Bug Report, {(new Date()).toLocaleDateString()}</title>
+                <link rel="stylesheet" type="text/css" href="report.css" />
             </head>
             <body>
                 <p>There are currently {allIssues.length} open issues.</p>

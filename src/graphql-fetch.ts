@@ -72,7 +72,7 @@ async function queryRepoIssues(owner: string, repoName: string, callback: (issue
 
     async function again(cursor: string | null): Promise<string | null> {
         // 100 times out, sometimes :|
-        const issuesPerPage = 50;
+        const issuesPerPage = 30;
         const variables = {
             owner,
             repoName,

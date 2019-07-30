@@ -1,0 +1,31 @@
+body {
+    background: #FCFCFC;
+    font-family: Verdana;
+}
+
+h1, h2, h3, h4 {
+    font-family: Helvetica;
+    font-weight: bold;
+}
+
+a, a:visited {
+    color: #00B;
+    text-decoration: none;
+}
+
+table {
+    border-collapse: collapse;
+}
+
+td {
+    padding: 6px;
+    border: solid #BBB 1px;
+}
+td a {
+    display: block;
+    width: 100%;
+}
+
+td.numeric {
+    text-align: right;
+}
