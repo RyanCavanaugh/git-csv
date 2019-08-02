@@ -246,8 +246,8 @@ function createOpenIssueTriager() {
     const lists: { [K in keyof typeof reportItems]: gq.Issue[] } = {} as any;
 
     for (const k of Object.keys(reportItems) as (keyof typeof reportItems)[]) {
+        lists[k] = lists[k] || [];
         reportItems[k].addTerminalAction(item => {
-            lists[k] = lists[k] || [];
             lists[k].push(item);
         })
     }
