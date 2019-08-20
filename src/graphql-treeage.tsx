@@ -202,24 +202,15 @@ function createOpenIssueTriager() {
     const waitingForTC39 = suggestion.addPath(hasLabel("Waiting for TC39"));
     const unsortedSuggestions = suggestion.otherwise().describe("Untriaged Suggestion");
 
-    const meta = create<gq.Issue>().describe("Meta, Infra, & Notes");
-    meta.addPath(hasLabel("Meta-Issue"));
-    meta.addPath(hasLabel("Infrastructure"));
-    meta.addPath(hasLabel("Design Notes"));
-    meta.addPath(hasLabel("Discussion"));
-    meta.addPath(hasLabel("Planning"));
-    issue.addPathTo(meta.groupingPredicate, meta);
+    const meta = issue.addPath(hasAnyLabel("Meta-Issue", "Design Notes", "Discussion", "Planning"));
+    const infra = issue.addPath(hasLabel("Infrastructure"));
 
-    const docs = create<gq.Issue>().describe("Docs & Website");
-    docs.addPath(hasLabel("Website"));
-    docs.addPath(hasLabel("Website Logo"));
-    docs.addPath(hasLabel("Spec"));
-    docs.addPath(hasLabel("Docs"));
-    issue.addPathTo(docs.groupingPredicate, docs);
+    const docs = issue.addPath(hasAnyLabel("Spec", "Docs"));
+    const website = issue.addPath(hasAnyLabel("Website", "Website Logo"));
 
     const noise = issue.addPath(hasAnyLabel("Question", "Working as Intended", "Design Limitation", "Duplicate", "By Design", "External", "Unactionable", "Won't Fix")).describe("Noise");
 
-    issue.addPath(needsMoreInfoButNotSuggestion);
+    const needsMoreInfo = issue.addPath(needsMoreInfoButNotSuggestion);
 
     const missingSuggestionLabel = issue.addPath(i => hasAnyLabel("Needs Proposal", "In Discussion")(i) && !hasLabel("Suggestion")(i));
 
@@ -241,7 +232,12 @@ function createOpenIssueTriager() {
         needsInfo,
         acceptingPRs,
         unsortedSuggestions,
-        waitingForTC39
+        waitingForTC39,
+        meta,
+        infra,
+        docs,
+        website,
+        needsMoreInfo
     };
     const lists: { [K in keyof typeof reportItems]: gq.Issue[] } = {} as any;
 
@@ -249,7 +245,7 @@ function createOpenIssueTriager() {
         lists[k] = lists[k] || [];
         reportItems[k].addTerminalAction(item => {
             lists[k].push(item);
-        })
+        });
     }
 
     return ({
@@ -356,6 +352,14 @@ function lastActivity(issue: gq.Issue) {
     return (issue.timelineItems[issue.timelineItems.length - 1] || issue).createdAt;
 }
 
+function mapFragment<T>(arr: readonly T[], render: (el: T, i: number) => JSX.Element) {
+    return <>
+        {arr.map((el, i) => {
+            return <React.Fragment key={i}>{render(el, i)}</React.Fragment>
+        })}
+    </>;
+}
+
 function reactReport() {
     function column(title: Column[0], sel: Column[1], style: Column[2] = ""): Column {
         return [title, sel, style];
@@ -390,24 +394,39 @@ function reactReport() {
         allIssues.push(issue);
         root.process(issue);
     }
+    
+    fs.writeFileSync("viz.txt", visualizeNodeTree(root), { encoding: "utf-8" });
 
-    function BugTable({ issues, columns }: { issues: ReadonlyArray<gq.Issue>, columns: Column[] }) {
-        return (<table>
-            <thead>
-                <tr>
-                    {columns.map((c, i) => <th key={i} className={c[2]}>{c[0]}</th>)}
-                </tr>
-            </thead>
-            <tbody>
-                {issues.map(issue => <tr key={issue.number}>
-                    {columns.map((c, i) => <td key={i} className={c[2]}>{c[1](issue)}</td>)}
-                </tr>)}
-            </tbody>
-        </table>);
+    function BugTable({ issues, columns, header }: { issues: ReadonlyArray<gq.Issue>, columns: Column[], header: string }) {
+        if (issues.length === 0) return null;
+
+        return <>
+            <h3>{header} ({issues.length})</h3>
+            <table>
+                <thead>
+                    <tr>
+                        {columns.map((c, i) => <th key={i} className={c[2]}>{c[0]}</th>)}
+                    </tr>
+                </thead>
+                <tbody>
+                    {issues.map(issue => <tr key={issue.number}>
+                        {columns.map((c, i) => <td key={i} className={c[2]}>{c[1](issue)}</td>)}
+                    </tr>)}
+                </tbody>
+            </table>
+        </>;
     }
 
     function Report() {
         const bugsByMilestone = groupBy(categories.bugs, i => i.milestone ? i.milestone.title : "(No Milestone)");
+
+        const columns = {
+            Minimal: [Columns.ID, Columns.Title],
+            BadLabels: [Columns.ID, Columns.Title, Columns.Labels, Columns.Milestone, Columns.Assignee],
+            WithFeedback: [Columns.ID, Columns.Title, Columns.Domain, Columns.Upvotes, Columns.Comments, Columns.LastActivity],
+            Scheduled: [Columns.ID, Columns.Title, Columns.Domain, Columns.Assignee, Columns.LastActivity],
+            ShowLabels: [Columns.ID, Columns.Title, Columns.Labels, Columns.Upvotes, Columns.Comments, Columns.LastActivity],
+        };
 
         return <html>
             <head>
@@ -415,60 +434,47 @@ function reactReport() {
                 <link rel="stylesheet" type="text/css" href="report.css" />
             </head>
             <body>
-                <p>There are currently {allIssues.length} open issues.</p>
+                <p>There are currently {allIssues.length.toLocaleString()} open issues.</p>
 
-                <h2>Needs Attention</h2>
+                <details open>
+                    <summary><span>Needs Attention</span></summary>
+                    <BugTable header="Mislabelled" issues={mislabelled.map(m => m[0])} columns={columns.BadLabels} />
+                    <BugTable header="Missing 'Suggestion' Label" issues={categories.missingSuggestionLabel} columns={columns.Minimal} />
+                    <BugTable header="Unlabelled" issues={categories.untriaged} columns={columns.WithFeedback} />
+                    <BugTable header="Bugs without Milestone" issues={categories.noMilestoneBugs} columns={columns.WithFeedback} />
+                    <BugTable header="Needs More Info" issues={categories.needsMoreInfo} columns={columns.WithFeedback} />
+                    <BugTable header="Unsorted Suggestions" issues={categories.unsortedSuggestions} columns={columns.WithFeedback} />
+               </details>
 
-                <h3>Mislabelled ({mislabelled.length})</h3>
-                <BugTable issues={mislabelled.map(m => m[0])} columns={[
-                    Columns.ID, Columns.Title, Columns.Labels, Columns.Milestone, Columns.Assignee
-                ]} />
+                <details open>
+                    <summary><span>Bugs</span></summary>
 
-                <h3>Missing "Suggestion" Label? ({categories.missingSuggestionLabel.length})</h3>
-                <BugTable issues={categories.missingSuggestionLabel} columns={[Columns.ID, Columns.Title]} />
+                    {mapFragment(bugsByMilestone, milestone => <BugTable header={milestone[0]} issues={milestone[1]} columns={columns.Scheduled} />)}
+
+                    <BugTable header="Bug Backlog" issues={sorted(categories.backlogBugs, i => -i.thumbsUps, i => -lastActivity(i))} columns={columns.WithFeedback} />
+                </details>
 
 
-                <h3>Unlabelled ({categories.untriaged.length})</h3>
-                <BugTable issues={categories.untriaged} columns={[
-                    Columns.ID, Columns.Title, Columns.Domain, Columns.Upvotes, Columns.Comments, Columns.LastActivity
-                ]} />
+                <details open>
+                    <summary><span>Suggestions</span></summary>
 
-                <h3>Bugs Without Milestones ({categories.noMilestoneBugs.length})</h3>
-                <BugTable issues={categories.noMilestoneBugs} columns={[
-                    Columns.ID, Columns.Title, Columns.Domain, Columns.Upvotes, Columns.Comments, Columns.LastActivity
-                ]} />
+                    <BugTable header="Accepting PRs" issues={categories.acceptingPRs} columns={columns.WithFeedback} />
+                    <BugTable header="In Discussion" issues={sorted(categories.docket, i => -i.thumbsUps, i => -lastActivity(i))} columns={columns.WithFeedback} />
+                    <BugTable header="Awaiting More Feedback" issues={sorted(categories.amf, i => -i.thumbsUps, i => -lastActivity(i))} columns={columns.WithFeedback} />
+                    <BugTable header="Needs More Info" issues={categories.needsInfo} columns={columns.WithFeedback} />
+                    <BugTable header="Blocked on TC39" issues={categories.waitingForTC39} columns={columns.WithFeedback} />
+                </details>
 
-                <h2>Scheduled Bugs ({categories.bugs.length})</h2>
-                {
-                    bugsByMilestone.map((bbm, i) => <React.Fragment key={i}>
-                        <h3>{bbm[0]}</h3>
-                        <BugTable issues={bbm[1]} columns={[
-                            Columns.ID, Columns.Title, Columns.Domain, Columns.Assignee, Columns.LastActivity
-                        ]} />
-                    </React.Fragment>)
-                }
+                <details open>
+                    <summary><span>Other</span></summary>
 
-                <h2>Backlog Bugs ({categories.backlogBugs.length})</h2>
-                <BugTable issues={sorted(categories.backlogBugs, i => -i.thumbsUps, i => -lastActivity(i))} columns={[
-                    Columns.ID, Columns.Title, Columns.Domain, Columns.Upvotes, Columns.Comments, Columns.LastActivity
-                ]} />
-
-                <h2>Suggestions</h2>
-
-                <h3>In Discussion ({categories.docket.length})</h3>
-                <BugTable issues={sorted(categories.docket, i => -i.thumbsUps, i => -lastActivity(i))} columns={[
-                    Columns.ID, Columns.Title, Columns.Domain, Columns.Upvotes, Columns.Comments, Columns.LastActivity
-                ]} />
-
-                <h3>Awaiting More Feedback ({categories.amf.length})</h3>
-                <BugTable issues={sorted(categories.amf, i => -i.thumbsUps, i => -lastActivity(i))} columns={[
-                    Columns.ID, Columns.Title, Columns.Domain, Columns.Upvotes, Columns.Comments, Columns.LastActivity
-                ]} />
-
-                <h3>Needs More Info ({categories.needsInfo.length})</h3>
-                <BugTable issues={categories.needsInfo} columns={[
-                    Columns.ID, Columns.Title, Columns.Domain, Columns.Upvotes, Columns.Comments, Columns.LastActivity
-                ]} />
+                    <BugTable header="Needs Investigation" issues={categories.needsInvestigation} columns={columns.WithFeedback} />
+                    <BugTable header="Meta" issues={categories.meta} columns={columns.ShowLabels} />
+                    <BugTable header="Docs" issues={categories.docs} columns={columns.ShowLabels} />
+                    <BugTable header="Website" issues={categories.website} columns={columns.ShowLabels} />
+                    <BugTable header="Infra" issues={categories.infra} columns={columns.ShowLabels} />
+                    <BugTable header="Unclosed Noise" issues={categories.noise} columns={columns.ShowLabels} />
+                </details>
 
                 <p>This report was generated on {(new Date()).toLocaleDateString("en-US")} at {(new Date()).toLocaleTimeString("en-US")}</p>
             </body>
@@ -646,25 +652,8 @@ function runHistoricalReport() {
         if (processCount % 1000 === 0) console.log(processCount);
     }
     rows.reverse();
-
-    /* TODO what was this code doing??
-    const colNodes = getAllParentedNodes(rows[0].triager);
-    const columns = colNodes.map(node => node[1]);
-    const report = [];
-    report.push(["date", ...columns].join(","));
-    for (const row of rows) {
-        const nodes = getAllParentedNodes(row.triager);
-        const cells = nodes.map(node => node[0].hitCount);
-        const csv = [row.date.toLocaleDateString(), ...cells].join(",");
-        report.push(csv);
-    }
-    fs.writeFileSync("historical-report.csv", report.join("\r\n"), { encoding: "utf-8" });
-    */
 }
 
-// runHistoricalReport();
-
-// runReport();
 reactReport();
 
 function assertNever(x: never) {
