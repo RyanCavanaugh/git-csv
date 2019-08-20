@@ -10,8 +10,6 @@ import { Predicate, create, NodeOptions, visualizeNodeTree } from "./treeage-cor
 
 import CSV = csv.CSV;
 
-const dataRoot = path.join(__dirname, "../graphql_data/microsoft/TypeScript");
-
 function hasLabel(name: string): Predicate<gq.Issue> {
     function hasLabelImpl(item: gq.Issue) {
         return item.labels.some((i: gq.Label) => i.name === name);
@@ -360,7 +358,7 @@ function mapFragment<T>(arr: readonly T[], render: (el: T, i: number) => JSX.Ele
     </>;
 }
 
-function reactReport() {
+export function reactReport(dataRoot: string) {
     function column(title: Column[0], sel: Column[1], style: Column[2] = ""): Column {
         return [title, sel, style];
     }
@@ -394,8 +392,6 @@ function reactReport() {
         allIssues.push(issue);
         root.process(issue);
     }
-    
-    fs.writeFileSync("viz.txt", visualizeNodeTree(root), { encoding: "utf-8" });
 
     function BugTable({ issues, columns, header }: { issues: ReadonlyArray<gq.Issue>, columns: Column[], header: string }) {
         if (issues.length === 0) return null;
@@ -481,10 +477,11 @@ function reactReport() {
         </html>
     }
 
-    fs.writeFileSync("report.html", ReactDOM.renderToStaticMarkup(<Report />), { encoding: "utf-8" });
+    const html = ReactDOM.renderToStaticMarkup(<Report />);
+    return html;
 }
 
-function runReport() {
+function runReport(dataRoot: string) {
     const { root, categories, mislabelled } = createOpenIssueTriager();
 
     const fileNames = fs.readdirSync(dataRoot);
@@ -626,7 +623,7 @@ function getReportDates(): Date[] {
     return result;
 }
 
-function runHistoricalReport() {
+function runHistoricalReport(dataRoot: string) {
     const dates = getReportDates();
     const rows = dates.map(date => ({
         date,
@@ -653,8 +650,6 @@ function runHistoricalReport() {
     }
     rows.reverse();
 }
-
-reactReport();
 
 function assertNever(x: never) {
     throw new Error(`Impossible value ${x} observed`);

@@ -14,12 +14,14 @@
     "axios": "^0.19.0",
     "fs-extra": "^7.0.1",
     "react": "^16.8.6",
-    "react-dom": "^16.8.6"
+    "react-dom": "^16.8.6",
+    "rimraf": "^3.0.0"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",
     "@types/fs-extra": "^5.0.5",
     "@types/lodash": "^4.14.136",
+    "@types/rimraf": "^2.0.2",
     "typescript": "^3.5.0-dev.20190521"
   },
   "scripts": {

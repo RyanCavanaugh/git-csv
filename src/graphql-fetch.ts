@@ -4,11 +4,10 @@ import axios from "axios";
 import { RepoIssuesResult, TimelineItemsResult } from './graphql-definitions';
 
 const repoRoot = path.join(__dirname, "../");
-const dataRoot = path.join(repoRoot, "graphql_data");
 const queryDefinitions = fs.readFileSync(path.join(repoRoot, "graphql/issues.gql"), { encoding: "utf-8" });
 
 async function doGraphQL(definitionFileName: string, variables: object | null): Promise<unknown> {
-    console.clear();
+    // console.clear();
 
     const importedGqls = new Map<string, true>();
 
@@ -30,7 +29,7 @@ async function doGraphQL(definitionFileName: string, variables: object | null): 
     const token = await fs.readFile(path.join(repoRoot, "../api-auth-token.txt"), { encoding: "utf-8" });
     const url = `https://api.github.com/graphql`;
     const data = (variables === null) ? { query } : { query, variables };
-    console.log(JSON.stringify(data, undefined, 2));
+    // console.log(JSON.stringify(data, undefined, 2));
     const result = await axios(url, {
         headers: {
             "Authorization": `bearer ${token}`,
@@ -39,7 +38,7 @@ async function doGraphQL(definitionFileName: string, variables: object | null): 
         method: "POST",
         data
     });
-    console.log(JSON.stringify(result.data, undefined, 2));
+    // console.log(JSON.stringify(result.data, undefined, 2));
     if (result.status !== 200) {
         console.error(result.statusText);
         throw new Error(result.statusText);
@@ -64,7 +63,7 @@ async function getRemainingTimelineIssues(owner: string, repoName: string, issue
     return items;
 }
 
-async function queryRepoIssues(owner: string, repoName: string, callback: (issue: RepoIssuesResult.Issue) => void) {
+export async function queryRepoIssues(owner: string, repoName: string, callback: (issue: RepoIssuesResult.Issue) => void) {
     let result: string | null = null;
     do {
         result = await again(result);
@@ -99,11 +98,3 @@ async function queryRepoIssues(owner: string, repoName: string, callback: (issue
     }
 }
 
-queryRepoIssues("microsoft", "TypeScript", issue => {
-    const targetPath = path.join(dataRoot, "microsoft", "TypeScript");
-    const filename = path.join(targetPath, `${issue.number}.json`);
-    fs.mkdirpSync(targetPath);
-    fs.writeFileSync(filename, JSON.stringify(issue, undefined, 2), { encoding: "utf-8" });
-}).then(() => {
-    console.log("Done!");
-});
