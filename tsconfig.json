@@ -22,6 +22,6 @@
         "src/github.d.ts",
         "src/graphql-fetch.ts",
         "src/graphql-treeage.tsx",
-        "src/open-issues-report.tsx"
+        "src/open-issues-report.ts"
     ]
 }
