@@ -1,0 +1,23 @@
+# import pr-timeline-item.gql
+
+query($owner: String!, $repoName: String!, $issueNumber: Int!, $cursor: String) {
+  ...moreTimelineItems
+}
+
+fragment moreTimelineItems on Query {
+  repository(owner: $owner, name: $repoName) {
+    pullRequest(number: $issueNumber) {
+      timelineItems(first: 100, after: $cursor, itemTypes: [ISSUE_COMMENT, ASSIGNED_EVENT, CLOSED_EVENT, REOPENED_EVENT, LABELED_EVENT, UNLABELED_EVENT, LOCKED_EVENT, UNLOCKED_EVENT, MILESTONED_EVENT, DEMILESTONED_EVENT]) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        edges {
+          node {
+            ...timelineItem
+          }
+        }
+      }
+    }
+  }
+}

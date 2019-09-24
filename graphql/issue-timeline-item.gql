@@ -1,4 +1,4 @@
-fragment timelineItem on IssueTimelineItem {
+fragment issueTimelineItem on IssueTimelineItem {
   __typename
   ... on IssueComment {
     id
@@ -11,7 +11,12 @@ fragment timelineItem on IssueTimelineItem {
   ... on AssignedEvent {
     createdAt
     actor { login }
-    user { login }
+    assignee {
+      __typename
+      ... on User {
+        login
+      }
+    }
   }
   ... on LabeledEvent {
     createdAt

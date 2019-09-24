@@ -46,47 +46,58 @@ async function doGraphQL(definitionFileName: string, variables: object | null): 
     return result.data;
 }
 
-async function getRemainingTimelineIssues(owner: string, repoName: string, issueNumber: number, cursor: string): Promise<readonly RepoIssuesResult.TimelineItemsEdge[]> {
+async function getRemainingIssueTimelineItems(owner: string, repoName: string, issueNumber: number, cursor: string): Promise<readonly RepoIssuesResult.TimelineItemsEdge[]> {
     const variables = {
         owner,
         repoName,
         issueNumber,
         cursor
     };
-    const root = (await doGraphQL("more-timeline-items.gql", variables)) as TimelineItemsResult.Root;
+    const root = (await doGraphQL("more-issue-timeline-items.gql", variables)) as TimelineItemsResult.Root;
     const items: RepoIssuesResult.TimelineItemsEdge[] = [];
     items.push(...root.data.repository.issue.timelineItems.edges);
     if (root.data.repository.issue.timelineItems.pageInfo.hasNextPage) {
-        const more = await getRemainingTimelineIssues(owner, repoName, issueNumber, root.data.repository.issue.timelineItems.pageInfo.endCursor);
+        const more = await getRemainingIssueTimelineItems(owner, repoName, issueNumber, root.data.repository.issue.timelineItems.pageInfo.endCursor);
         items.push(...more);
     }
     return items;
 }
 
-export async function queryRepoIssues(owner: string, repoName: string, callback: (issue: RepoIssuesResult.Issue) => void) {
+export async function queryRepoIssues(owner: string, repoName: string, states: "OPEN" | "OPEN | CLOSED", callback: (issue: RepoIssuesResult.Issue) => void) {
     let result: string | null = null;
     do {
         result = await again(result);
     } while (result !== null);
 
     async function again(cursor: string | null): Promise<string | null> {
-        // 100 times out, sometimes :|
-        const issuesPerPage = 30;
-        const variables = {
-            owner,
-            repoName,
-            issuesPerPage,
-            cursor
-        };
-        const root = (await doGraphQL("issues.gql", variables)) as RepoIssuesResult.Root;
-    
+        let issuesPerPage = 100;
+        let root: RepoIssuesResult.Root | undefined = undefined;
+        while (!root) {
+            const variables = {
+                owner,
+                repoName,
+                issuesPerPage,
+                cursor,
+                states
+            };
+            try {
+                root = (await doGraphQL("issues.gql", variables)) as RepoIssuesResult.Root;
+                break;
+            } catch (e) {
+                issuesPerPage = Math.floor(issuesPerPage / 2);
+                if (issuesPerPage === 0) {
+                    throw e;
+                }
+            }
+        }
+
         const info = root.data.repository.issues;
         for (const edge of info.edges) {
             const issue = edge.node;
-    
+
             // Fill in paginated timeline items
             if (issue.timelineItems.pageInfo.hasNextPage) {
-                const remainingItems = await getRemainingTimelineIssues(owner, repoName, issue.number, issue.timelineItems.pageInfo.endCursor);
+                const remainingItems = await getRemainingIssueTimelineItems(owner, repoName, issue.number, issue.timelineItems.pageInfo.endCursor);
                 // Do not change to push(...remainingItems) - potential for stack overflow
                 for (const item of remainingItems) issue.timelineItems.edges.push(item);
             }
