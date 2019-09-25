@@ -1,6 +1,6 @@
-#import issue-timeline-item.gql
+# import issue-timeline-item.gql
 
-query($owner: String!, $repoName: String!, $issuesPerPage: Int, $cursor: String = null, $states: IssueState = OPEN) {
+query issues($owner: String!, $repoName: String!, $issuesPerPage: Int, $cursor: String = null, $states: [IssueState!] = OPEN) {
   ...repoIssues
 }
 
@@ -49,7 +49,7 @@ fragment issueSummary on Issue {
     pageInfo { endCursor, hasNextPage }
     edges {
       node {
-        ...timelineItem
+        ...issueTimelineItem
       }
     }
   }

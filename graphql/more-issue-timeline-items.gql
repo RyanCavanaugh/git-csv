@@ -1,6 +1,6 @@
 # import timeline-item.gql
 
-query($owner: String!, $repoName: String!, $issueNumber: Int!, $cursor: String) {
+query moreIssueTimelineItems($owner: String!, $repoName: String!, $issueNumber: Int!, $cursor: String) {
   ...moreTimelineItems
 }
 
@@ -14,7 +14,7 @@ fragment moreTimelineItems on Query {
         }
         edges {
           node {
-            ...timelineItem
+            ...issueTimelineItem
           }
         }
       }
