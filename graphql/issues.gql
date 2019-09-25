@@ -1,4 +1,4 @@
-# import issue-timeline-item.gql
+#import issue-timeline-item.gql
 
 query($owner: String!, $repoName: String!, $issuesPerPage: Int, $cursor: String = null, $states: IssueState = OPEN) {
   ...repoIssues

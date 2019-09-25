@@ -1,4 +1,4 @@
-# import pr-timeline-item.gql
+#import pr-timeline-item.gql
 
 query($owner: String!, $repoName: String!, $issueNumber: Int!, $cursor: String) {
   ...moreTimelineItems
