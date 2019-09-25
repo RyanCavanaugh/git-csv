@@ -511,7 +511,6 @@ export interface issues_repository {
 }
 
 export interface issues {
-  __typename: "Query";
   /**
    * Lookup a given repository by the owner and repository name.
    */

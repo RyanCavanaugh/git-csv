@@ -8,7 +8,7 @@ const repoRoot = path.join(__dirname, "../");
 const dataRoot = path.join(repoRoot, "graphql_data/open_issues/");
 
 rmrf(dataRoot, () => {
-    queryRepoIssues("microsoft", "TypeScript", issue => {
+    queryRepoIssues("microsoft", "TypeScript", "OPEN", issue => {
         const targetPath = path.join(dataRoot, "microsoft", "TypeScript");
         const filename = path.join(targetPath, `${issue.number}.json`);
         fs.mkdirpSync(targetPath);

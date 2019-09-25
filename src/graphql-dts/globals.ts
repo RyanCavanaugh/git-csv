@@ -48,6 +48,15 @@ export enum PullRequestReviewState {
   PENDING = "PENDING",
 }
 
+/**
+ * The possible states of a pull request.
+ */
+export enum PullRequestState {
+  CLOSED = "CLOSED",
+  MERGED = "MERGED",
+  OPEN = "OPEN",
+}
+
 //==============================================================
 // END Enums and Input Objects
 //==============================================================

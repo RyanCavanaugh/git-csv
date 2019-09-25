@@ -432,7 +432,6 @@ export interface morePrTimelineItems_repository {
 }
 
 export interface morePrTimelineItems {
-  __typename: "Query";
   /**
    * Lookup a given repository by the owner and repository name.
    */
