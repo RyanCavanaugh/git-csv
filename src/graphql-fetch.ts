@@ -1,12 +1,17 @@
 import path = require('path');
 import fs = require('fs-extra');
 import axios from "axios";
+import * as PullRequestQuery from './graphql-dts/prs';
 import * as IssuesQuery from './graphql-dts/issues';
 import * as MoreIssueTimelineItemsQuery from './graphql-dts/moreIssueTimelineItems';
+import * as MorePrTimelineItemsQuery from './graphql-dts/morePrTimelineItems';
 
-type IssueQueryResult = IssuesQuery.issues;
 type Issue = IssuesQuery.issues_repository_issues_edges_node;
-type TimelineItem = MoreIssueTimelineItemsQuery.moreIssueTimelineItems_repository_issue_timelineItems_edges;
+type IssueQueryResult = IssuesQuery.issues;
+type IssueTimelineItem = MoreIssueTimelineItemsQuery.moreIssueTimelineItems_repository_issue_timelineItems_edges;
+type PullRequest = PullRequestQuery.prs_repository_pullRequests_edges_node;
+type PullRequestQueryResult = PullRequestQuery.prs;
+type PullRequestTimelineItem = MorePrTimelineItemsQuery.morePrTimelineItems_repository_pullRequest_timelineItems_edges;
 
 const repoRoot = path.join(__dirname, "../");
 
@@ -53,28 +58,45 @@ async function doGraphQL(definitionFileName: string, variables: object | null): 
     }
 }
 
-async function getRemainingIssueTimelineItems(owner: string, repoName: string, issueNumber: number, cursor: string): Promise<readonly TimelineItem[]> {
+async function getRemainingItemTimelineItems(kind: ItemKind, owner: string, repoName: string, itemNumber: number, cursor: string): Promise<readonly (IssueTimelineItem | PullRequestTimelineItem)[]> {
     const variables = {
         owner,
         repoName,
-        issueNumber,
+        itemNumber,
         cursor
     };
-    const root = (await doGraphQL("more-issue-timeline-items.gql", variables)) as MoreIssueTimelineItemsQuery.moreIssueTimelineItems;
-    if (!root.repository) throw "No repo";
-    if (!root.repository.issue) throw "No issue";
-    if (!root.repository.issue.timelineItems) throw "No issue timeline";
-    if (!root.repository.issue.timelineItems.edges) throw "No issue timeline edges";
+    const queryName = kind === "pr" ? "more-pr-timeline-items.gql" : "more-issue-timeline-items.gql"
+    const root = (await doGraphQL(queryName, variables)) as (MoreIssueTimelineItemsQuery.moreIssueTimelineItems | MorePrTimelineItemsQuery.morePrTimelineItems);
+    let edges;
+    let pageInfo;
+    if (kind === "pr") {
+        const info = root as MorePrTimelineItemsQuery.morePrTimelineItems;
+        if (!info.repository) throw "No repo";
+        if (!info.repository.pullRequest) throw "No PR";
+        if (!info.repository.pullRequest.timelineItems) throw "No timeline";
+        if (!info.repository.pullRequest.timelineItems.edges) throw "No edges";
+        edges = info.repository.pullRequest.timelineItems.edges;
+        pageInfo = info.repository.pullRequest.timelineItems.pageInfo;
+    } else {
+        const info = root as MoreIssueTimelineItemsQuery.moreIssueTimelineItems;
+        if (!info.repository) throw "No repo";
+        if (!info.repository.issue) throw "No PR";
+        if (!info.repository.issue.timelineItems) throw "No timeline";
+        if (!info.repository.issue.timelineItems.edges) throw "No edges";
+        edges = info.repository.issue.timelineItems.edges;
+        pageInfo = info.repository.issue.timelineItems.pageInfo;
+    }
 
-    const items: TimelineItem[] = [];
-    for (const item of root.repository.issue.timelineItems.edges) {
+    const items: (IssueTimelineItem | PullRequestTimelineItem)[] = [];
+    for (const item of edges) {
         if (item) {
             items.push(item);
         }
     }
-    if (root.repository.issue.timelineItems.pageInfo.hasNextPage) {
-    if (!root.repository.issue.timelineItems.pageInfo.endCursor) throw "Have next page pointer, but no endCursor";
-        const more = await getRemainingIssueTimelineItems(owner, repoName, issueNumber, root.repository.issue.timelineItems.pageInfo.endCursor);
+
+    if (pageInfo.hasNextPage) {
+        if (!pageInfo.endCursor) throw "Have next page pointer, but no endCursor";
+        const more = await getRemainingItemTimelineItems(kind, owner, repoName, itemNumber, pageInfo.endCursor);
         for (const item of more) {
             items.push(item);
         }
@@ -82,57 +104,80 @@ async function getRemainingIssueTimelineItems(owner: string, repoName: string, i
     return items;
 }
 
-export async function queryRepoIssues(owner: string, repoName: string, states: "OPEN" | "OPEN | CLOSED", callback: (issue: Issue) => void) {
+export type ItemKind = "pr" | "issue";
+export async function queryRepoIssuesOrPullRequests(kind: ItemKind, owner: string, repoName: string, states: "OPEN" | "CLOSED" | "MERGED", callback: (item: Issue | PullRequest) => void) {
+    const queryName = kind === "pr" ? "prs.gql" : "issues.gql";
     let result: string | null = null;
     do {
         result = await again(result);
     } while (result !== null);
 
     async function again(cursor: string | null): Promise<string | null> {
-        let issuesPerPage = 100;
-        let root: IssueQueryResult | undefined = undefined;
+        let itemsPerPage = 100;
+        let root: PullRequestQueryResult | IssueQueryResult | undefined = undefined;
         while (!root) {
             const variables = {
                 owner,
                 repoName,
-                issuesPerPage,
+                itemsPerPage,
                 cursor,
                 states
             };
             try {
-                root = (await doGraphQL("issues.gql", variables)) as IssueQueryResult;
+                root = (await doGraphQL(queryName, variables)) as IssueQueryResult | PullRequestQueryResult;
                 break;
             } catch (e) {
-                // Query timed out; reduce number of queried issues by half and try again
-                issuesPerPage = Math.floor(issuesPerPage / 2);
-                if (issuesPerPage === 0) {
+                // Query timed out; reduce number of queried items by half and try again
+                itemsPerPage = Math.floor(itemsPerPage / 2);
+                console.log(`Trying again with fewer items (${itemsPerPage})`);
+                if (itemsPerPage === 0) {
                     throw e;
                 }
             }
         }
 
-        if (!root.repository || !root.repository.issues) throw "Something null";
-        const info = root.repository.issues;
-        if (!info.edges) throw "No edges"
-        for (const edge of info.edges) {
+        let edges;
+        let pageInfo;
+        if (kind === "pr") {
+            const info = (root as PullRequestQueryResult).repository;
+            if (!info) throw "Repo null";
+            if (!info.pullRequests) throw "PRs null";
+            if (!info.pullRequests.edges) throw "Edges null";
+            edges = info.pullRequests.edges;
+            pageInfo = info.pullRequests.pageInfo;
+        } else {
+            const info = (root as IssueQueryResult).repository;
+            if (!info) throw "Repo null";
+            if (!info.issues) throw "PRs null";
+            if (!info.issues.edges) throw "Edges null";
+            edges = info.issues.edges;
+            pageInfo = info.issues.pageInfo;
+        }
+
+        for (const edge of edges) {
             if (!edge) throw "Null edge";
             if (!edge.node) throw "Null issue";
 
-            const issue = edge.node;
+            const item = edge.node;
 
             // Fill in paginated timeline items
-            if (issue.timelineItems.pageInfo.hasNextPage) {
-                const remainingItems = await getRemainingIssueTimelineItems(owner, repoName, issue.number, issue.timelineItems.pageInfo.endCursor!);
+            if (item.timelineItems.pageInfo.hasNextPage) {
+                const remainingItems = await getRemainingItemTimelineItems(kind, owner, repoName, item.number, item.timelineItems.pageInfo.endCursor!);
                 // Do not change to push(...remainingItems) - potential for stack overflow
-                for (const item of remainingItems) {
-                    issue.timelineItems.edges!.push({ node: item.node, __typename: item.__typename });
-                    issue.timelineItems.edges![0]!.node
+                for (const timelineItem of remainingItems) {
+                    if (kind === "pr") {
+                        const prTimelineItem = timelineItem as PullRequestTimelineItem;
+                        (item.timelineItems.edges as PullRequestTimelineItem[]).push({ node: prTimelineItem.node, __typename: prTimelineItem.__typename });
+                    } else {
+                        const issueTimelineItem = timelineItem as IssueTimelineItem;
+                        (item.timelineItems.edges as IssueTimelineItem[]).push({ node: issueTimelineItem.node, __typename: issueTimelineItem.__typename });
+                    }
                 }
             }
 
-            callback(issue);
+            callback(item);
         }
 
-        return info.pageInfo.hasNextPage ? info.pageInfo.endCursor : null;
+        return pageInfo.hasNextPage ? pageInfo.endCursor : null;
     }
 }

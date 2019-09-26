@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
         "module": "commonjs",
-        "target": "es5",
+        "target": "es6",
         "sourceMap": false,
 
         "outDir": "bin",
@@ -14,6 +14,7 @@
         "noImplicitThis": true
     },
     "files": [
+        "src/runner.ts",
         "src/treeage.ts",
         "src/fetch.ts",
         "src/duplicate-finder.ts",

@@ -1,8 +1,8 @@
 # import pr-timeline-item.gql
 
-query prs($owner: String!, $repoName: String!, $issuesPerPage: Int, $cursor: String = null, $states: [PullRequestState!] = OPEN) {
+query prs($owner: String!, $repoName: String!, $itemsPerPage: Int, $cursor: String = null, $states: [PullRequestState!] = OPEN) {
   repository(owner: $owner, name: $repoName) {
-    pullRequests(first: $issuesPerPage, states: $states, orderBy: {field: CREATED_AT, direction: ASC}, after: $cursor) {
+    pullRequests(first: $itemsPerPage, states: $states, orderBy: {field: CREATED_AT, direction: ASC}, after: $cursor) {
       pageInfo {
         hasNextPage
         endCursor
@@ -33,7 +33,7 @@ query prs($owner: String!, $repoName: String!, $issuesPerPage: Int, $cursor: Str
                 node { id, name, color }
               }
             }
-            timelineItems(first: 50, itemTypes: [ISSUE_COMMENT, ASSIGNED_EVENT, CLOSED_EVENT, REOPENED_EVENT, LABELED_EVENT, UNLABELED_EVENT, LOCKED_EVENT, UNLOCKED_EVENT, MILESTONED_EVENT, DEMILESTONED_EVENT]) {
+            timelineItems(first: 25, itemTypes: [ISSUE_COMMENT, ASSIGNED_EVENT, CLOSED_EVENT, REOPENED_EVENT, LABELED_EVENT, UNLABELED_EVENT, LOCKED_EVENT, UNLOCKED_EVENT, MILESTONED_EVENT, DEMILESTONED_EVENT]) {
               pageInfo { endCursor, hasNextPage }
               edges {
                 node {
