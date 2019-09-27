@@ -17,7 +17,7 @@ const repoRoot = path.join(__dirname, "../");
 
 async function doGraphQL(definitionFileName: string, variables: object | null): Promise<unknown> {
     if (doGraphQL.lastRateLimit) {
-        if (doGraphQL.lastRateLimit.cost * 10 < doGraphQL.lastRateLimit.remaining) {
+        if (doGraphQL.lastRateLimit.cost * 10 > doGraphQL.lastRateLimit.remaining) {
             const reset = new Date(doGraphQL.lastRateLimit.resetAt);
             console.log(`Waiting until ${reset.toLocaleTimeString()} for rate limit to reset`);
             await sleep(+reset - +(new Date()));
@@ -88,13 +88,19 @@ async function getRemainingItemTimelineItems(kind: ItemKind, owner: string, repo
             root = (await doGraphQL(queryName, variables)) as (MoreIssueTimelineItemsQuery.moreIssueTimelineItems | MorePrTimelineItemsQuery.morePrTimelineItems);
             break;
         } catch (e) {
+            if (e.response && e.response.status === 403) {
+                // Abuse detection; back off
+                console.log("Backing off from abuse detection");
+                await sleep(60 * 1000);
+                continue;
+            }
             console.log(`Error during timeline fetch: ${e.message}; retry`);
             if (e.response) {
-                console.log(`  data: ${e.response.data}`);
+                console.log(`  data: ${JSON.stringify(e.response.data, undefined, 2)}`);
                 console.log(`  status: ${e.response.status}`);
-                console.log(`  headers: ${e.response.headers}`);
+                console.log(`  headers: ${JSON.stringify(e.response.headers, undefined, 2)}`);
             }
-            await sleep(1000);
+            await sleep(3000);
             if (--retryCount === 0) {
                 console.log(`Fatal error`);
                 await fs.writeFile(`last-query.txt`, doGraphQL.lastQueryData, { encoding: "utf-8" });
@@ -172,10 +178,22 @@ export async function queryRepoIssuesOrPullRequests(kind: ItemKind, owner: strin
                 root = (await doGraphQL(queryName, variables)) as IssueQueryResult | PullRequestQueryResult;
                 break;
             } catch (e) {
+                if (e.response && e.response.status === 403) {
+                    // Abuse detection; back off
+                    console.log("Backing off from abuse detection");
+                    await sleep(60 * 1000);
+                    continue;
+                }
+    
                 // Query timed out; reduce number of queried items by half and try again
                 itemsPerPage = Math.floor(itemsPerPage / 2);
-                console.log(`Query failed. Trying again with fewer items (${itemsPerPage})`);
+                console.log(`Query failed (code ${e.response && e.response.status}). Trying again with fewer items (${itemsPerPage})`);
                 if (itemsPerPage === 0) {
+                    if (e.response) {
+                        console.log(`  data: ${JSON.stringify(e.response.data, undefined, 2)}`);
+                        console.log(`  status: ${e.response.status}`);
+                        console.log(`  headers: ${JSON.stringify(e.response.headers, undefined, 2)}`);
+                    }
                     debugger;
                     throw e;
                 }
