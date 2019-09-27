@@ -59,3 +59,7 @@ export async function ts_open_issues() {
 export async function ts_all() {
     await runQuery("ts-all", "microsoft", "TypeScript", "both", "ALL");
 }
+
+export async function ts_test() {
+    await runQuery("ts-test", "microsoft", "TypeScript", "issue", "CLOSED");
+}

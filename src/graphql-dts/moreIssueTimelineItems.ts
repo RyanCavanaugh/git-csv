@@ -349,6 +349,6 @@ export interface moreIssueTimelineItems {
 export interface moreIssueTimelineItemsVariables {
   owner: string;
   repoName: string;
-  issueNumber: number;
+  itemNumber: number;
   cursor?: string | null;
 }

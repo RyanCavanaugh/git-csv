@@ -510,17 +510,41 @@ export interface issues_repository {
   issues: issues_repository_issues;
 }
 
+export interface issues_rateLimit {
+  __typename: "RateLimit";
+  /**
+   * The point cost for the current query counting against the rate limit.
+   */
+  cost: number;
+  /**
+   * The maximum number of points the client is permitted to consume in a 60 minute window.
+   */
+  limit: number;
+  /**
+   * The number of points remaining in the current rate limit window.
+   */
+  remaining: number;
+  /**
+   * The time at which the current rate limit window resets in UTC epoch seconds.
+   */
+  resetAt: any;
+}
+
 export interface issues {
   /**
    * Lookup a given repository by the owner and repository name.
    */
   repository: issues_repository | null;
+  /**
+   * The client's rate limit information.
+   */
+  rateLimit: issues_rateLimit | null;
 }
 
 export interface issuesVariables {
   owner: string;
   repoName: string;
-  issuesPerPage?: number | null;
+  itemsPerPage?: number | null;
   cursor?: string | null;
   states?: IssueState[] | null;
 }

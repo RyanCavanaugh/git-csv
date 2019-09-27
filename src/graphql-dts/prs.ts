@@ -602,17 +602,41 @@ export interface prs_repository {
   pullRequests: prs_repository_pullRequests;
 }
 
+export interface prs_rateLimit {
+  __typename: "RateLimit";
+  /**
+   * The point cost for the current query counting against the rate limit.
+   */
+  cost: number;
+  /**
+   * The maximum number of points the client is permitted to consume in a 60 minute window.
+   */
+  limit: number;
+  /**
+   * The number of points remaining in the current rate limit window.
+   */
+  remaining: number;
+  /**
+   * The time at which the current rate limit window resets in UTC epoch seconds.
+   */
+  resetAt: any;
+}
+
 export interface prs {
   /**
    * Lookup a given repository by the owner and repository name.
    */
   repository: prs_repository | null;
+  /**
+   * The client's rate limit information.
+   */
+  rateLimit: prs_rateLimit | null;
 }
 
 export interface prsVariables {
   owner: string;
   repoName: string;
-  issuesPerPage?: number | null;
+  itemsPerPage?: number | null;
   cursor?: string | null;
   states?: PullRequestState[] | null;
 }

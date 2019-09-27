@@ -441,6 +441,6 @@ export interface morePrTimelineItems {
 export interface morePrTimelineItemsVariables {
   owner: string;
   repoName: string;
-  issueNumber: number;
+  itemNumber: number;
   cursor?: string | null;
 }
