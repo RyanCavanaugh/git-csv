@@ -21,6 +21,10 @@ fragment prTimelineItem on PullRequestTimelineItems {
       }
     }
   }
+  ... on MergedEvent {
+    createdAt
+    actor { login }
+  }
   ... on IssueComment {
     id
     author { login }

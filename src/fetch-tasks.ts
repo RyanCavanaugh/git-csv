@@ -52,6 +52,11 @@ export async function dt_open() {
     await runQuery("dt-open-prs", "DefinitelyTyped", "DefinitelyTyped", "pr", "OPEN");
 }
 
+
+export async function dt_all_prs() {
+    await runQuery("dt-all-prs", "DefinitelyTyped", "DefinitelyTyped", "pr", "ALL");
+}
+
 export async function ts_open_issues() {
     await runQuery("ts-open-issues", "microsoft", "TypeScript", "issue", "OPEN");
 }

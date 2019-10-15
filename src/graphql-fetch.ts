@@ -164,7 +164,7 @@ export async function queryRepoIssuesOrPullRequests(kind: ItemKind, owner: strin
     } while (nextCursor !== null);
 
     async function again(cursor: string | null): Promise<string | null> {
-        let itemsPerPage = 100;
+        let itemsPerPage = 50;
         let root: PullRequestQueryResult | IssueQueryResult | undefined = undefined;
         while (!root) {
             const variables = {

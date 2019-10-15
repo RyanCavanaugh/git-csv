@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 let fs = require('fs');
 
 function produceKeywordMap(issues: Issue[]) {

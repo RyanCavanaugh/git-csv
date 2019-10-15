@@ -6,6 +6,7 @@ process.on('unhandledRejection', (error: any) => {
 
 const tasks = [
     ["fetch-dt-open", fetchTasks.dt_open],
+    ["fetch-dt-all-prs", fetchTasks.dt_all_prs],
     ["fetch-ts-open", fetchTasks.ts_open_issues],
     ["fetch-ts-all", fetchTasks.ts_all],
     ["fetch-ts-test", fetchTasks.ts_test]

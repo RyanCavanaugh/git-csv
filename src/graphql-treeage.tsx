@@ -6,7 +6,7 @@ import gq = require("./graphql-loader");
 import _ = require("lodash");
 import React = require("react");
 import ReactDOM = require("react-dom/server");
-import { Predicate, create, NodeOptions, visualizeNodeTree } from "./treeage-core";
+import { Predicate, create, NodeOptions, visualizeNodeTree } from "treeage";
 
 import CSV = csv.CSV;
 

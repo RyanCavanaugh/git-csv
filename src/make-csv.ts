@@ -5,7 +5,7 @@ import tree = require('./treeage');
 
 import CSV = csv.CSV;
 
-const dataDir = path.join(__dirname, '../data/');
+const dataDir = path.join(__dirname, '../graphql_data/ts-all/microsoft/TypeScript');
 
 function timestampToDate(s: string): string {
 	return new Date(s).toLocaleDateString();
