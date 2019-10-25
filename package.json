@@ -27,7 +27,8 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "graphql-schema": "apollo client:codegen --config=apollo.config.js --tag=github --target typescript ../src/graphql-dts --globalTypesFile=src/graphql-dts/globals.ts"
+    "graphql-schema": "apollo client:codegen --config=apollo.config.js --tag=github --target typescript ../src/graphql-dts --globalTypesFile=src/graphql-dts/globals.ts",
+    "go": "node bin/runner.js"
   },
   "repository": {
     "type": "git",

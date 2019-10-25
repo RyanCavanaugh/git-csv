@@ -1,4 +1,6 @@
+import path = require("path");
 import * as fetchTasks from "./fetch-tasks";
+import * as graphql_makeCsv from "./graphql-make-csv";
 
 process.on('unhandledRejection', (error: any) => {
     console.log(error.message);
@@ -9,7 +11,10 @@ const tasks = [
     ["fetch-dt-all-prs", fetchTasks.dt_all_prs],
     ["fetch-ts-open", fetchTasks.ts_open_issues],
     ["fetch-ts-all", fetchTasks.ts_all],
-    ["fetch-ts-test", fetchTasks.ts_test]
+    ["fetch-ts-test", fetchTasks.ts_test],
+    ["csv-ts-open", async () => {
+        graphql_makeCsv.runReport(path.join(__dirname, '../graphql_data/ts-open-issues/Microsoft/TypeScript'), "ts-open-issues");
+    }]
 ] as const;
 
 let ok = false;

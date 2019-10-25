@@ -1,7 +1,6 @@
 import fs = require('fs');
 import path = require('path');
 import csv = require('./csv');
-import tree = require('./treeage');
 
 import CSV = csv.CSV;
 
@@ -35,6 +34,7 @@ const LabelSynonyms: { [s: string]: string } = {
 // Earlier labels take priority over later labels
 const LabelPriority = [
     "Duplicate",
+    "Needs Investigation",
     "Bug",
     "Question",
     "By Design",
@@ -519,7 +519,7 @@ function makeBurndownChart(data: GitHubAPI.Issue[], milestoneList: readonly stri
 }
 */
 
-function runReport(dataDir: string, prefix: string) {
+export function runReport(dataDir: string, prefix: string) {
     const issues: Issue[] = read(path.join(dataDir, "issue"));
     const prs: PullRequest[] = read(path.join(dataDir, "pr"));
 
@@ -545,10 +545,6 @@ function runReport(dataDir: string, prefix: string) {
     }
 }
 
-function main() {
-    runReport(path.join(__dirname, '../graphql_data/dt-all-prs/DefinitelyTyped/DefinitelyTyped'), "dt");
-}
-
 // Burndown chart logic
 /*
 
@@ -564,5 +560,3 @@ and is currently closed, or is assigned to them now and still open.
 An issue is "resolved" if it's currently closed.
 "Open" is by definition the remainder.
 */
-
-main();
