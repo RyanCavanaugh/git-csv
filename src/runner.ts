@@ -1,6 +1,7 @@
 import path = require("path");
 import * as fetchTasks from "./fetch-tasks";
 import * as graphql_makeCsv from "./graphql-make-csv";
+import { makeIssueTrainingData } from "./make-gpt";
 
 process.on('unhandledRejection', (error: any) => {
     console.log(error.message);
@@ -12,6 +13,9 @@ const tasks = [
     ["fetch-ts-open", fetchTasks.ts_open_issues],
     ["fetch-ts-all", fetchTasks.ts_all],
     ["fetch-ts-test", fetchTasks.ts_test],
+    ["gpt-ts-all", async () => {
+        await makeIssueTrainingData();
+    }],
     ["csv-ts-open", async () => {
         graphql_makeCsv.runReport(path.join(__dirname, '../graphql_data/ts-open-issues/Microsoft/TypeScript'), "ts-open-issues");
     }],
