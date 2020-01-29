@@ -14,7 +14,11 @@ const tasks = [
     ["fetch-ts-test", fetchTasks.ts_test],
     ["csv-ts-open", async () => {
         graphql_makeCsv.runReport(path.join(__dirname, '../graphql_data/ts-open-issues/Microsoft/TypeScript'), "ts-open-issues");
+    }],
+    ["csv-ts-all", async () => {
+        graphql_makeCsv.runReport(path.join(__dirname, '../graphql_data/ts-all/Microsoft/TypeScript'), "ts-all");
     }]
+
 ] as const;
 
 let ok = false;

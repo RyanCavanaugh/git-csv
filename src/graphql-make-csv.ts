@@ -382,7 +382,7 @@ function makeIssueReport(data: Issue[], prefix: string) {
     issues.addColumn('Category1', i => categorize(i)[0]);
     issues.addColumn('Category2', i => categorize(i)[1]);
     // issues.addColumn('Type', i => i.pull_request ? "PR" : "Issue");
-    issues.addColumn('State', i => i.closed ? "open" : "closed");
+    issues.addColumn('State', i => !i.closed ? "open" : "closed");
     issues.addColumn('Category', i => BroadCategories[bestLabel(i)] || bestLabel(i));
     issues.addColumn('Milestone', i => i.milestone ? i.milestone.title : "");
     issues.addColumn('Label', i => bestLabel(i));
@@ -401,7 +401,7 @@ function makePullRequestReport(data: PullRequest[], prefix: string) {
     issues.addColumn('Month Created', i => getMonthCreated(i));
     issues.addColumn('Created Date', i => timestampToDate(i.createdAt));
     issues.addColumn('Created By', i => i.author?.login ?? '(ghost)');
-    issues.addColumn('State', i => i.closed ? "open" : "closed");
+    issues.addColumn('State', i => !i.closed ? "open" : "closed");
     issues.addColumn('Comments', i => i.timelineItems?.edges?.filter(e => e?.node?.__typename === "IssueComment").length.toString() ?? "0");
 
     fs.writeFileSync(`${prefix}-prs.csv`, issues.generate(data).join('\r\n'), { encoding: 'utf-8' });
