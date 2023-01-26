@@ -12,7 +12,6 @@ type IssueTimelineItem = MoreIssueTimelineItemsQuery.moreIssueTimelineItems_repo
 type PullRequest = PullRequestQuery.prs_repository_pullRequests_edges_node;
 type PullRequestQueryResult = PullRequestQuery.prs;
 type PullRequestTimelineItem = MorePrTimelineItemsQuery.morePrTimelineItems_repository_pullRequest_timelineItems_edges;
-
 const repoRoot = path.join(__dirname, "../");
 
 async function doGraphQL(definitionFileName: string, variables: object | null): Promise<unknown> {
@@ -87,7 +86,7 @@ async function getRemainingItemTimelineItems(kind: ItemKind, owner: string, repo
         try {
             root = (await doGraphQL(queryName, variables)) as (MoreIssueTimelineItemsQuery.moreIssueTimelineItems | MorePrTimelineItemsQuery.morePrTimelineItems);
             break;
-        } catch (e) {
+        } catch (e: any) {
             if (e.response && e.response.status === 403) {
                 // Abuse detection; back off
                 console.log("Backing off from abuse detection");
@@ -177,7 +176,7 @@ export async function queryRepoIssuesOrPullRequests(kind: ItemKind, owner: strin
             try {
                 root = (await doGraphQL(queryName, variables)) as IssueQueryResult | PullRequestQueryResult;
                 break;
-            } catch (e) {
+            } catch (e: any) {
                 if (e.response && e.response.status === 403) {
                     // Abuse detection; back off
                     console.log("Backing off from abuse detection");
