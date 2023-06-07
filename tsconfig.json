@@ -1,13 +1,9 @@
 {
     "compilerOptions": {
         "module": "commonjs",
-        "target": "es6",
-        "sourceMap": false,
-
+        "target": "esnext",
         "outDir": "bin",
-
         "jsx": "react",
-
         "strict": true,
         "noImplicitReturns": true,
         "noEmitOnError": true,

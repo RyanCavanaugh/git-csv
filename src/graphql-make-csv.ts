@@ -214,7 +214,11 @@ function getActivityRecordsForPr(pr: PullRequest) {
             case "SubscribedEvent":
             case "UnsubscribedEvent":
             case "TransferredEvent":
-                break;
+            case "ConvertToDraftEvent" as any:
+            case "AutomaticBaseChangeSucceededEvent" as any:
+            case "BaseRefDeletedEvent" as any:
+            case "ConnectedEvent" as any:
+                    break;
 
             default:
                 return assertNever(item.node);
@@ -295,7 +299,11 @@ function getActivityRecordsForIssue(issue: Issue) {
             case "SubscribedEvent":
             case "UnsubscribedEvent":
             case "TransferredEvent":
-                break;
+            case "ConvertToDraftEvent" as any:
+            case "BaseRefDeletedEvent" as any:
+            case "AutomaticBaseChangeSucceededEvent" as any:
+            case "ConnectedEvent" as any:
+                    break;
 
             default:
                 return assertNever(item.node);
@@ -313,7 +321,7 @@ function getActivityRecordsForIssue(issue: Issue) {
 }
 
 function assertNever(n: never): never {
-    throw new Error("No!");
+    throw new Error("No! " + JSON.stringify(n));
 }
 
 function hasLabel(issue: Issue, name: string) {
