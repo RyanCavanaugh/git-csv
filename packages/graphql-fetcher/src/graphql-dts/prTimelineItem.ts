@@ -2,7 +2,7 @@
 /* eslint-disable */
 // This file was automatically generated and should not be edited.
 
-import { CommentAuthorAssociation, PullRequestReviewState, LockReason } from "./globals";
+import { CommentAuthorAssociation, PullRequestReviewState, LockReason } from "./globals.js";
 
 // ====================================================
 // GraphQL fragment: prTimelineItem

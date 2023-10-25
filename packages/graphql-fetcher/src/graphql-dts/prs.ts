@@ -2,7 +2,7 @@
 /* eslint-disable */
 // This file was automatically generated and should not be edited.
 
-import { PullRequestState, CommentAuthorAssociation, PullRequestReviewState, LockReason } from "./globals";
+import { PullRequestState, CommentAuthorAssociation, PullRequestReviewState, LockReason } from "./globals.js";
 
 // ====================================================
 // GraphQL query operation: prs

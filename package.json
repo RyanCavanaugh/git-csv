@@ -1,18 +1,25 @@
 {
   "name": "git-csv",
   "version": "1.0.0",
+  "workspaces": [
+    "packages/graphql-fetcher",
+    "packages/graphql-io",
+    "packages/newspaper",
+    "packages/common"
+  ],
   "description": "Delete data\\issue-index.json",
   "main": "index.js",
   "bin": {
     "git-csv": "duplicate-finder.js"
   },
   "dependencies": {
+    "@graphql-codegen/cli": "^5.0.0",
+    "@graphql-codegen/typescript": "^4.0.1",
     "@playlyfe/gql": "^2.6.1",
-    "@types/node": "^11.15.54",
     "@types/react": "^16.8.23",
     "@types/react-dom": "^16.8.5",
-    "axios": "^0.19.0",
     "fs-extra": "^7.0.1",
+    "io-ts": "^2.2.20",
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
     "rimraf": "^3.0.0",
@@ -22,7 +29,9 @@
     "@types/axios": "^0.14.0",
     "@types/fs-extra": "^5.0.5",
     "@types/lodash": "^4.14.136",
+    "@types/node": "^20.2.5",
     "@types/rimraf": "^2.0.2",
+    "axios": "^1.4.0",
     "typescript": "^3.5.0-dev.20190521"
   },
   "scripts": {

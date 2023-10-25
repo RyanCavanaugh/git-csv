@@ -5,6 +5,7 @@ fragment issueTimelineItem on IssueTimelineItem {
     author { login }
     body
     createdAt
+    url
     thumbsUps: reactions(content: THUMBS_UP) { totalCount }
     thumbsDowns: reactions(content: THUMBS_DOWN) { totalCount }
   }

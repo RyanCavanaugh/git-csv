@@ -1,10 +1,15 @@
-import path = require('path');
-import fs = require('fs-extra');
-import axios from "axios";
-import * as PullRequestQuery from './graphql-dts/prs';
-import * as IssuesQuery from './graphql-dts/issues';
-import * as MoreIssueTimelineItemsQuery from './graphql-dts/moreIssueTimelineItems';
-import * as MorePrTimelineItemsQuery from './graphql-dts/morePrTimelineItems';
+import * as fs from 'fs/promises';
+import * as PullRequestQuery from './graphql-dts/prs.js';
+import * as IssuesQuery from './graphql-dts/issues.js';
+import * as MoreIssueTimelineItemsQuery from './graphql-dts/moreIssueTimelineItems.js';
+import * as MorePrTimelineItemsQuery from './graphql-dts/morePrTimelineItems.js';
+import * as url from 'url';
+import * as path from 'path';
+import axios from 'axios';
+
+const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
+
+const queriesRoot = path.join(__dirname, "../queries");
 
 type Issue = IssuesQuery.issues_repository_issues_edges_node;
 type IssueQueryResult = IssuesQuery.issues;
@@ -12,7 +17,6 @@ type IssueTimelineItem = MoreIssueTimelineItemsQuery.moreIssueTimelineItems_repo
 type PullRequest = PullRequestQuery.prs_repository_pullRequests_edges_node;
 type PullRequestQueryResult = PullRequestQuery.prs;
 type PullRequestTimelineItem = MorePrTimelineItemsQuery.morePrTimelineItems_repository_pullRequest_timelineItems_edges;
-const repoRoot = path.join(__dirname, "../");
 
 async function doGraphQL(definitionFileName: string, variables: object | null): Promise<unknown> {
     if (doGraphQL.lastRateLimit) {
@@ -32,7 +36,7 @@ async function doGraphQL(definitionFileName: string, variables: object | null): 
             const importTarget = match[1];
             if (importedGqls.has(importTarget)) continue;
             importedGqls.set(importTarget, true);
-            const importedContent = await fs.readFile(path.join(repoRoot, "graphql", importTarget), { encoding: "utf-8" });
+            const importedContent = await fs.readFile(path.join(queriesRoot, importTarget), { encoding: "utf-8" });
             const importedLines = importedContent.split(/\r?\n/g);
             lines.splice(i, 1, ...importedLines);
             i--;
@@ -40,7 +44,7 @@ async function doGraphQL(definitionFileName: string, variables: object | null): 
     }
     const query = lines.join("\n");
 
-    const token = await fs.readFile(path.join(repoRoot, "../api-auth-token.txt"), { encoding: "utf-8" });
+    const token = await fs.readFile(path.join(__dirname, "../../../../api-auth-token.txt"), { encoding: "utf-8" });
     const url = `https://api.github.com/graphql`;
     const data = (variables === null) ? { query } : { query, variables };
 

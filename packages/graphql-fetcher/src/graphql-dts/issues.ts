@@ -2,7 +2,7 @@
 /* eslint-disable */
 // This file was automatically generated and should not be edited.
 
-import { IssueState, LockReason } from "./globals";
+import { IssueState, LockReason } from "./globals.js";
 
 // ====================================================
 // GraphQL query operation: issues

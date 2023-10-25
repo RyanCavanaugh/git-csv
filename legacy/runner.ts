@@ -1,7 +1,10 @@
-import path = require("path");
+import * as path from "path")
 import * as fetchTasks from "./fetch-tasks";
 import * as graphql_makeCsv from "./graphql-make-csv";
 import { makeIssueTrainingData } from "./make-gpt";
+import { generateEmbeddings } from "./fetch-embeddings";
+
+const allName = path.join(__dirname, '../graphql_data/ts-all/Microsoft/TypeScript');
 
 process.on('unhandledRejection', (error: any) => {
     console.log(error.message);
@@ -13,6 +16,9 @@ const tasks = [
     ["fetch-ts-open", fetchTasks.ts_open_issues],
     ["fetch-ts-all", fetchTasks.ts_all],
     ["fetch-ts-test", fetchTasks.ts_test],
+    ["embeddings", async () => {
+        await generateEmbeddings(allName);
+    }],
     ["gpt-ts-all", async () => {
         await makeIssueTrainingData();
     }],

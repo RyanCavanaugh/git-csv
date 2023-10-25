@@ -1,0 +1,29 @@
+query($owner:String!, $repoName: String!) {
+  repository(owner: $owner, name: $repoName) {
+    open_issues: issues(first: 100, states: OPEN, orderBy: { field: UPDATED_AT, direction: DESC }) {
+      nodes {
+        number
+      }
+    }
+    closed_issues: issues(first: 100, states: CLOSED, orderBy: { field: UPDATED_AT, direction: DESC }) {
+      nodes {
+        number
+      }
+    }
+    open_prs:pullRequests(first: 100, states: OPEN, orderBy: { field: UPDATED_AT, direction: DESC } ) {
+      nodes {
+        number
+      }
+    }
+    merged_prs:pullRequests(first: 100, states: MERGED, orderBy: { field: UPDATED_AT, direction: DESC } ) {
+      nodes {
+        number
+      }
+    }
+    closed_prs:pullRequests(first: 100, states: CLOSED, orderBy: { field: UPDATED_AT, direction: DESC } ) {
+      nodes {
+        number
+      }
+    }
+  }
+}

@@ -1,0 +1,182 @@
+<html><title>TypeScript Daily Report for 10/25/2023</title><link rel="stylesheet" href="./style.css"/><body><div class="issue"><h1><a href="https://github.com/microsoft/TypeScript/issues/911"><span class="number-ref">#911</span></a> Support for wildcards in command line</h1><div class="events"><div class="event"><span class="byline"><span class="author"><img src="https://github.com/0x1026.png?size=40"/>@0x1026</span> <a href>at <span class="date">12/26/2022 11:43:04 AM</span></a></span> <div class="comment-body"><p>Entering 2023, and we&#39;re exactly like 2014, amazing</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/cawoodm.png?size=40"/>@cawoodm</span> <a href>at <span class="date">10/23/2023 5:18:45 AM</span></a></span> <div class="comment-body"><p>I find it hard to believe that <code>tsc</code> doesn&#39;t support wildcards. But it doesn&#39;t. Why do I have to tell it which individual files to compile?</p>
+<h3>Works Fine with individual files</h3>
+<pre><code>tsc src/tmp.js --noEmit --checkJs
+src/tmp.js:15:14 - error TS2345: Argument of type &#39;string&#39; is not assignable to parameter of type &#39;number&#39;.
+
+15   return add(&#39;a&#39;, 2);
+                ~~~
+</code></pre>
+<h3>Will not compile all files</h3>
+<pre><code>tsc src/*.js --noEmit --checkJs
+error TS6053: File &#39;src/*.js&#39; not found.
+  The file is in the program because:
+    Root file specified for compilation
+
+
+Found 1 error.
+</code></pre>
+</div></div></div></div><div class="issue"><h1><a href="https://github.com/microsoft/TypeScript/issues/56217"><span class="number-ref">#56217</span></a> Incorrect type inference after array unpacking. Unsound error</h1><div class="events"><div class="event"><span class="byline"><span class="author"><img src="https://github.com/MartinJohns.png?size=40"/>@MartinJohns</span> <a href>at <span class="date">10/25/2023 6:04:56 AM</span></a></span> <div class="comment-body"><p>This was already fixed by introducing the <code>noUncheckedIndexedAccess</code> compiler option. You need to enable it, then it results in <code>number | undefined</code> as expected.</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/Crinax.png?size=40"/>@Crinax</span> <a href>at <span class="date">10/25/2023 6:17:34 AM</span></a></span> <div class="comment-body"><blockquote>
+<p>This was already fixed by introducing the <code>noUncheckedIndexedAccess</code> compiler option. You need to enable it, then it results in <code>number | undefined</code> as expected.</p>
+</blockquote>
+<p>Sorry, I missed that option, thank you.</p>
+<p>In that way, wouldn&#39;t it be considered a logical error? When a user tries to get an element, TypeScript guarantees that it exists.</p>
+<p>Perhaps I don&#39;t understand something.</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/MartinJohns.png?size=40"/>@MartinJohns</span> <a href>at <span class="date">10/25/2023 6:42:58 AM</span></a></span> <div class="comment-body"><blockquote>
+<p>In that way, wouldn&#39;t it be considered a logical error? When a user tries to get an element, TypeScript guarantees that it exists.</p>
+</blockquote>
+<p>I don&#39;t understand what you mean. Without <code>noUncheckedIndexedAccess</code> the type is unsound, yes. That&#39;s why this option was added.</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/Crinax.png?size=40"/>@Crinax</span> <a href>at <span class="date">10/25/2023 6:56:39 AM</span></a></span> <div class="comment-body"><blockquote>
+<blockquote>
+<p>In that way, wouldn&#39;t it be considered a logical error? When a user tries to get an element, TypeScript guarantees that it exists.</p>
+</blockquote>
+<p>I don&#39;t understand what you mean. Without <code>noUncheckedIndexedAccess</code> the type is unsound, yes. That&#39;s why this option was added.</p>
+</blockquote>
+<p>So, I understood, thank you</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/Crinax.png?size=40"/>@Crinax</span> closed <span class="timestamp">at 10/25/2023</span></span></div></div></div><div class="issue"><h1><a href="https://github.com/microsoft/TypeScript/issues/56216"><span class="number-ref">#56216</span></a> Inappropriate Type Narrowing on Iterative Variable Reassignment</h1><div class="events"><div class="event"><span class="byline"><span class="author"><img src="https://github.com/RyanCavanaugh.png?size=40"/>@RyanCavanaugh</span> <a href>at <span class="date">10/24/2023 4:54:15 PM</span></a></span> <div class="comment-body"><p>Effects of callbacks aren&#39;t modeled in CFA, so your example is equivalent to</p>
+<pre><code class="language-ts">
+type Step = {
+    stepName: string
+    nextStep: Step | null;
+}
+
+const stepList = [&#39;a&#39;, &#39;b&#39;, &#39;c&#39;];
+let headStep: Step | null = null;
+let prevStep: Step | null = null;
+
+type inferredType = typeof headStep
+//  ^?
+</code></pre>
+<p>which is correct.</p>
+<p>See #11498</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/pedrodurek.png?size=40"/>@pedrodurek</span> <a href>at <span class="date">10/24/2023 5:00:10 PM</span></a></span> <div class="comment-body"><p>Ohhh got it, thanks for the explanation @RyanCavanaugh! Just realised that I 👍 the original issue at some point in the past. I&#39;ll close this one.</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/pedrodurek.png?size=40"/>@pedrodurek</span> closed <span class="timestamp">at 10/24/2023</span></span></div></div></div><div class="issue"><h1><a href="https://github.com/microsoft/TypeScript/issues/56213"><span class="number-ref">#56213</span></a> Bloomberg feedback for 5.3 Beta</h1><div class="events"><div class="event"><span class="byline"><span class="author"><img src="https://github.com/RyanCavanaugh.png?size=40"/>@RyanCavanaugh</span> added label <span class="label">Discussion</span> <span class="timestamp">at 10/24/2023</span></span></div></div></div><div class="issue"><h1><a href="https://github.com/microsoft/TypeScript/issues/56210"><span class="number-ref">#56210</span></a> Make VS Code use &quot;.js&quot; instead of &quot;.jsx&quot; when auto-generating import for &quot;.tsx&quot; file</h1><div class="events"><div class="event"><span class="byline"><span class="author"><img src="https://github.com/VSCodeTriageBot.png?size=40"/>@VSCodeTriageBot</span> <a href>at <span class="date">10/24/2023 8:05:45 AM</span></a></span> </div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/RyanCavanaugh.png?size=40"/>@RyanCavanaugh</span> <a href>at <span class="date">10/24/2023 9:33:22 AM</span></a></span> <div class="comment-body"><p>The auto-import behavior will try to match whatever would work at runtime. Please post a complete repro (including tsconfig, package.json, and the actual files)</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/RyanCavanaugh.png?size=40"/>@RyanCavanaugh</span> added label <span class="label">Needs More Info</span> <span class="timestamp">at 10/24/2023</span></span></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/sdegutis.png?size=40"/>@sdegutis</span> <a href>at <span class="date">10/24/2023 9:40:25 AM</span></a></span> <div class="comment-body"><p>Hey @RyanCavanaugh. So it&#39;s my custom runtime in <a href="https://github.com/sdegutis/immaculatalibrary.com">https://github.com/sdegutis/immaculatalibrary.com</a>, where all .ts or .tsx files are compiled by sucrase and <a href="https://github.com/sdegutis/immaculatalibrary.com/blob/main/src/runtime.ts#L51">turned into .js files</a> within the runtime environment. I currently have an ugly hack to <a href="https://github.com/sdegutis/immaculatalibrary.com/blob/main/src/module.ts#L43">just replace all .jsx with .js</a> during the compilation phase, but it would be nice if VS Code had an option to just allow me to specify auto-imports as <code>.js</code> since that&#39;s what .ts and .tsx could reasonably compile to in other environments as well. This is also part of my plan for this week of creating universal modules that work the same both at build time (for my ssg) as well as client-side, which means my &quot;compiler&quot; would be generating .js files that can be imported in the browser, where .jsx isn&#39;t a reasonable extension to generate, plus it has no JSX in it (compiled away by sucrase).</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/sdegutis.png?size=40"/>@sdegutis</span> <a href>at <span class="date">10/24/2023 9:40:38 AM</span></a></span> <div class="comment-body"><p>Off topic, feel free to ignore:</p>
+<p>On a related note, why hasn&#39;t the JS community standardized on just transforming JSX expressions to this? Seems like it would solve like <em>every problem</em>.</p>
+<pre><code class="language-typescript">interface JSX {
+  _isJsx: true,
+  tag: string | Function,
+  attrs: Record&lt;string, any&gt;,
+  children: any[],
+}
+</code></pre>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/RyanCavanaugh.png?size=40"/>@RyanCavanaugh</span> <a href>at <span class="date">10/24/2023 9:44:58 AM</span></a></span> <div class="comment-body"><p>It sounds like you want to set <code>jsx</code> to <code>react-native</code>, which preserves JSX for the next step in the build chain, but tells TS that the final file extension will be <code>.js</code></p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/sdegutis.png?size=40"/>@sdegutis</span> <a href>at <span class="date">10/24/2023 9:46:51 AM</span></a></span> <div class="comment-body"><p>Yep that does exactly what I need. Maybe it should be renamed to be more generic? But minor issue. Anyway thanks.</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/RyanCavanaugh.png?size=40"/>@RyanCavanaugh</span> removed label <span class="label">Needs More Info</span> <span class="timestamp">at 10/24/2023</span></span></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/RyanCavanaugh.png?size=40"/>@RyanCavanaugh</span> added label <span class="label">Question</span> <span class="timestamp">at 10/24/2023</span></span></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/nmain.png?size=40"/>@nmain</span> <a href>at <span class="date">10/25/2023 8:14:03 AM</span></a></span> <div class="comment-body"><blockquote>
+<p>Off topic, feel free to ignore:</p>
+</blockquote>
+<p>There&#39;s an RFC that contains quite a bit of justification for React&#39;s new JSX transform:  <a href="https://github.com/reactjs/rfcs/blob/createlement-rfc/text/0000-create-element-changes.md">https://github.com/reactjs/rfcs/blob/createlement-rfc/text/0000-create-element-changes.md</a></p>
+<p>Another thing you might find interesting is looking at Inferno&#39;s custom transform:  <a href="https://github.com/infernojs/inferno">https://github.com/infernojs/inferno</a>.  It&#39;s 99% React compatible yet uses a much different transform under the hood.  I think the idea there is for performance:  When the JSX is &quot;static&quot; in the source file, you know a lot about the structure of the vnodes ahead of time and a different transform can harness a lot of that.</p>
+<p>I think the JSX spec itself (<a href="https://github.com/facebook/jsx">https://github.com/facebook/jsx</a>) also contains some justification for why it covers only grammar and not the semantics of the transform.</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/sdegutis.png?size=40"/>@sdegutis</span> closed <span class="timestamp">at 10/25/2023</span></span></div></div></div><div class="issue"><h1><a href="https://github.com/microsoft/TypeScript/issues/56208"><span class="number-ref">#56208</span></a> Unable to widen &quot;this&quot; with an index signature (but a class instance works)</h1><div class="events"><div class="event"><span class="byline"><span class="author"><img src="https://github.com/RyanCavanaugh.png?size=40"/>@RyanCavanaugh</span> added label <span class="label">Working as Intended</span> <span class="timestamp">at 10/24/2023</span></span></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/RyanCavanaugh.png?size=40"/>@RyanCavanaugh</span> <a href>at <span class="date">10/24/2023 9:16:44 AM</span></a></span> <div class="comment-body"><p>This follows from the definitions of the operations involved:</p>
+<ul>
+<li><code>this</code> is treated as an arbitrary subtype of <code>MyClass</code></li>
+<li>The write expression <code>thisVar[&#39;newHackHere&#39;] = ()=&gt;{}</code> is unsound because a valid subtype of <code>this</code> might have some other field at <code>newHackHere</code></li>
+<li><code>T as U</code> is allowed when <code>T</code> or <code>U</code> is a subtype of the other</li>
+</ul>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/HolgerJeromin.png?size=40"/>@HolgerJeromin</span> <a href>at <span class="date">10/25/2023 1:10:09 AM</span></a></span> <div class="comment-body"><p>Thanks for your time. 
+I have no insight why <code>this</code> is treated as an arbitrary subtype of <code>MyClass</code>, but I am pretty sure there is a good reason for that.</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/HolgerJeromin.png?size=40"/>@HolgerJeromin</span> closed <span class="timestamp">at 10/25/2023</span></span></div></div></div><div class="issue"><h1><a href="https://github.com/microsoft/TypeScript/issues/56206"><span class="number-ref">#56206</span></a> In a modular context, when an enum uses another-enum as its value, the enum be Reverse mappings</h1><div class="events"><div class="event"><span class="byline"><span class="author"><img src="https://github.com/RyanCavanaugh.png?size=40"/>@RyanCavanaugh</span> added label <span class="label">Duplicate</span> <span class="timestamp">at 10/24/2023</span></span></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/RyanCavanaugh.png?size=40"/>@RyanCavanaugh</span> <a href>at <span class="date">10/24/2023 9:08:45 AM</span></a></span> <div class="comment-body"><p><a href="https://github.com/microsoft/TypeScript/issues/56153#issuecomment-1773331706">https://github.com/microsoft/TypeScript/issues/56153#issuecomment-1773331706</a></p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/fatcerberus.png?size=40"/>@fatcerberus</span> <a href>at <span class="date">10/24/2023 9:49:22 AM</span></a></span> <div class="comment-body"><p>Hmm, but that comment only says this would be an error under <code>isolatedModules</code>.  Here, even <em>without</em> <code>isolatedModules</code> (where this will presumably continue to be allowed), it&#39;s emitting a reverse mapping for a string-valued member, which seems wrong.</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/RyanCavanaugh.png?size=40"/>@RyanCavanaugh</span> <a href>at <span class="date">10/24/2023 3:50:44 PM</span></a></span> <div class="comment-body"><p>Codesandbox appears to be using single-file transpile and thus should turn on <code>isolatedModules</code>. The whole-program <code>tsc</code> emit is correctly unidirectional.</p>
+</div></div></div></div><div class="issue"><h1><a href="https://github.com/microsoft/TypeScript/issues/56205"><span class="number-ref">#56205</span></a> &quot;object&quot; can be made to accept primitives due to handling of &quot;{}&quot;</h1><div class="events"><div class="event"><span class="byline"><span class="author"><img src="https://github.com/fatcerberus.png?size=40"/>@fatcerberus</span> <a href>at <span class="date">10/24/2023 6:02:48 AM</span></a></span> <div class="comment-body"><p>This isn&#39;t unique to <code>{}</code> fwiw - you can also assign primitives to e.g. <code>{ toString(): string }</code> which is assignable to <code>object</code> for obvious reasons.  This is a known unsoundness with <code>object</code> iirc, because object types accept anything that is <em>coercible</em> to that object.</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/MartinJohns.png?size=40"/>@MartinJohns</span> <a href>at <span class="date">10/24/2023 6:20:24 AM</span></a></span> <div class="comment-body"><p><code>Exclude&lt;unknown, null | undefined&gt;</code> does absolutely nothing and resolves to <code>unknown</code>. <code>Exclude&lt;&gt;</code> is used to remove types from a <strong>union type</strong>, but <code>unknown</code> is not a union type. To represent a type &quot;<code>unknown</code>, except <code>null</code> and <code>undefined</code>&quot; you&#39;d need Negated Types: #4196</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/RyanCavanaugh.png?size=40"/>@RyanCavanaugh</span> added label <span class="label">Unactionable</span> <span class="timestamp">at 10/24/2023</span></span></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/RyanCavanaugh.png?size=40"/>@RyanCavanaugh</span> <a href>at <span class="date">10/24/2023 8:52:16 AM</span></a></span> <div class="comment-body"><p>Allowing <code>{}</code> to be used as <code>object</code> is an intentional compatibility hole since <code>object</code> didn&#39;t always exist, so people used <code>{}</code> as the next-best thing.</p>
+</div></div></div></div><div class="issue"><h1><a href="https://github.com/microsoft/TypeScript/issues/56204"><span class="number-ref">#56204</span></a> DIEGOHJJACOBO/walmer</h1><div class="events"><div class="event"><span class="byline"><span class="author"><img src="https://github.com/MartinJohns.png?size=40"/>@MartinJohns</span> <a href>at <span class="date">10/24/2023 3:12:48 AM</span></a></span> <div class="comment-body"><p>Duplicate of #9998.</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/fatcerberus.png?size=40"/>@fatcerberus</span> <a href>at <span class="date">10/24/2023 3:39:56 AM</span></a></span> <div class="comment-body"><p>@MartinJohns Just for the record this is just the 9998-dupe issue template copied and pasted verbatim, and yet it apparently doesn’t <em>use</em> that template since it wasn’t auto-tagged as a duplicate.  I have no idea what’s going on here.</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/RyanCavanaugh.png?size=40"/>@RyanCavanaugh</span> added label <span class="label">Duplicate</span> <span class="timestamp">at 10/24/2023</span></span></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/RyanCavanaugh.png?size=40"/>@RyanCavanaugh</span> <a href>at <span class="date">10/24/2023 8:46:07 AM</span></a></span> <div class="comment-body"><p>Pretty curious what series of misclicks led to this happening</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/RyanCavanaugh.png?size=40"/>@RyanCavanaugh</span> closed <span class="timestamp">at 10/24/2023</span></span></div></div></div><div class="issue"><h1><a href="https://github.com/microsoft/TypeScript/issues/56203"><span class="number-ref">#56203</span></a> Checking existence of entry in Record&lt;string, Promise&lt;string>> always yields &quot;This condition will always return true since this 'Promise&lt;string>' is always defined&quot;</h1><div class="events"><div class="event"><span class="byline"><span class="author"><img src="https://github.com/MartinJohns.png?size=40"/>@MartinJohns</span> <a href>at <span class="date">10/24/2023 2:33:31 AM</span></a></span> <div class="comment-body"><p>This is working as intended. You need to enable the <code>noUncheckedIndexedAccess</code> compiler option. Without the option each property accessed is assumed to be the type <code>Promise&lt;string&gt;</code>, and <code>Promise&lt;string&gt;</code>  is <strong>always</strong> truthy. Alternatively you can change the type to <code>Promise&lt;string&gt; | undefined</code>.</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/rasmusvhansen.png?size=40"/>@rasmusvhansen</span> <a href>at <span class="date">10/24/2023 3:01:55 AM</span></a></span> <div class="comment-body"><p>Yes enabling <code>noUncheckedIndexedAccess</code> fixes it.
+But is that really the intention that in <code>noUncheckedIndexedAccess</code> is false, it is <strong>disallowed</strong> to check after accessing an index?</p>
+<p>If that is the case, why is it not consistent so an error is also produced if the cache was typed as</p>
+<pre><code class="language-ts">const cache: Record&lt;string, string&gt; = {};
+</code></pre>
+<p>This produces no error even though it should be the same if it were consistent:</p>
+<p><a href="https://www.typescriptlang.org/play?ts=4.4.4#code/MYewdgzgLgBADgJxAWwJYQKYGECGwAWGAXDAEoagIAmAPNAqmAOYA0M9jTAfDALwwBvAL4BuAFBiAZgFcwwKKnAwmGKAAUkaTAAoA1hgCeJDswCUgsTCsxUkmNsQp02PIQDa+gwF1zAy9YCEVWkEMBgAcgAxEFkqcPEAoX8rIKgQsPCAORBYSRiwOPEkoA">https://www.typescriptlang.org/play?ts=4.4.4#code/MYewdgzgLgBADgJxAWwJYQKYGECGwAWGAXDAEoagIAmAPNAqmAOYA0M9jTAfDALwwBvAL4BuAFBiAZgFcwwKKnAwmGKAAUkaTAAoA1hgCeJDswCUgsTCsxUkmNsQp02PIQDa+gwF1zAy9YCEVWkEMBgAcgAxEFkqcPEAoX8rIKgQsPCAORBYSRiwOPEkoA</a></p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/fatcerberus.png?size=40"/>@fatcerberus</span> <a href>at <span class="date">10/24/2023 3:12:05 AM</span></a></span> <div class="comment-body"><p>Because strings can be falsy (<code>&quot;&quot;</code>).  Object types like <code>Promise</code> can’t.</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/rasmusvhansen.png?size=40"/>@rasmusvhansen</span> <a href>at <span class="date">10/24/2023 3:21:59 AM</span></a></span> <div class="comment-body"><blockquote>
+<p>Because strings can be falsy (<code>&quot;&quot;</code>). Object types like <code>Promise</code> can’t.</p>
+</blockquote>
+<p>No, that is not it</p>
+<pre><code class="language-ts">const cache: Record&lt;string, object&gt; = {};
+
+function getPromise(key: string) {
+    if (cache[key]) {
+        return &#39;Found&#39;;
+    }
+    return &#39;Not found&#39;;
+}
+</code></pre>
+<p>yields no error as well. There seems to be a special case for promises which is not consistent with &quot;normal&quot; objects.</p>
+<p><a href="https://www.typescriptlang.org/play?ts=4.4.4&ssl=9&ssc=1&pln=1&pc=1#code/MYewdgzgLgBMCGwAWBTAXDASi0AnAJgDzS4CWYA5gDQwgBGAVjlAHwwC8MA3gL4DcAKAEAzAK5hgUUuBgUUUAAq4QAW1IQUACgDWKAJ4YS5CgEpuAmJZilhMTQmQoA2rr0BdM1wtWfueaNwwGAByADEQcXxgwR8eb0s-KACg4IA5EFhhCLAowTigA">https://www.typescriptlang.org/play?ts=4.4.4&amp;ssl=9&amp;ssc=1&amp;pln=1&amp;pc=1#code/MYewdgzgLgBMCGwAWBTAXDASi0AnAJgDzS4CWYA5gDQwgBGAVjlAHwwC8MA3gL4DcAKAEAzAK5hgUUuBgUUUAAq4QAW1IQUACgDWKAJ4YS5CgEpuAmJZilhMTQmQoA2rr0BdM1wtWfueaNwwGAByADEQcXxgwR8eb0s-KACg4IA5EFhhCLAowTigA</a></p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/fatcerberus.png?size=40"/>@fatcerberus</span> <a href>at <span class="date">10/24/2023 3:34:14 AM</span></a></span> <div class="comment-body"><p>That should be an error, yeah.  Either way, the root cause here is <em>still</em> that <code>Record&lt;string, T&gt;</code> produces <code>T</code> when accessed, not <code>T | undefined</code>, and the solution is to either enable <code>noUncheckedIndexedAccess</code> or explicitly add <code>undefined</code> to the type.</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/rasmusvhansen.png?size=40"/>@rasmusvhansen</span> <a href>at <span class="date">10/24/2023 3:39:48 AM</span></a></span> <div class="comment-body"><blockquote>
+<p>Without the option each property accessed is assumed to be the type <code>Promise&lt;string&gt;</code>, and <code>Promise&lt;string&gt;</code> is <strong>always</strong> truthy. Alternatively you can change the type to <code>Promise&lt;string&gt; | undefined</code>.</p>
+</blockquote>
+<p>@MartinJohns, why is the behaviour different when having a <code>Record&lt;string, object&gt;</code> shouldn&#39;t it behave the same if what you wrote above is the cause of the error?</p>
+<p>@fatcerberus, yes. Enabling <code>noUncheckedIndexedAccess</code> is <strong>a</strong> solution. But typing a record as <code>Record&lt;string, T | undefined&gt;</code> seems like a weird hack since that is the nature of a record that you risk getting <code>undefined</code> when accessing it.</p>
+<p>However, it still seems like a bug to me that the behaviour is different just because the record contains a special type of object (<code>Promise&lt;T&gt;</code>)</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/fatcerberus.png?size=40"/>@fatcerberus</span> <a href>at <span class="date">10/24/2023 3:49:30 AM</span></a></span> <div class="comment-body"><p>It’s not just because it’s a “special type of object”, but because it’s an object type <em>at all</em> being checked for truthiness when objects are known by the compiler to always be truthy.  (The fact that it doesn’t show the error for <code>object</code> is probably a bug.)</p>
+<blockquote>
+<p>that is the nature of a record that you risk getting undefined when accessing it.</p>
+</blockquote>
+<p>Yes, but index signatures such as the one on <code>Record&lt;string, T&gt;</code> are unsound for convenience; any property you access is assumed to always exist and be the correct type.  <code>noUncheckedIndexedAccess</code> was added later to rectify this, but it breaks a lot of idiomatic code so it’s not enabled by default.</p>
+<p>The same thing applies to accessing arbitrary indices of an array, for what it’s worth.</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/rasmusvhansen.png?size=40"/>@rasmusvhansen</span> <a href>at <span class="date">10/24/2023 3:57:15 AM</span></a></span> <div class="comment-body"><p>@fatcerberus, ok, so what you are saying is that the bug is that the error <strong>only</strong> shows for Promise<T> and not any other object type (including user defined types)?</p>
+<p>I am not entirely sure I agree, but I guess that is a design decision for the TS team which way to go. But we agree that it should behave the same regardless of whether the values in the record are promises or any other object type, right?</p>
+<p>In any case, the hint about <code>Did you forget to use &#39;await&#39;?&quot;</code> is misleading, since this has nothing to do with the value being a promise.</p>
+<p>Example with user defined type (instead of <code>object</code>):</p>
+<p><a href="https://www.typescriptlang.org/play?ts=4.4.4#code/C4TwDgpgBAsiAq5oF4oG8B2BDAthAXFAM7ABOAlhgOYC+A3AFCiSwJIBMUqACqQPY5yRCAB4SFagD5GDAMZ8MJKLKyyAFgSgAlCPNIATMWUpUANK0SRJXdPQYMAZgFcMs4OQVQqEYLwFCIAAoAawgQQnETAEp0Bih4qHIHKECVdQgAbVCQAF0YtDiEotIfJ1IMKAByADE+F31KxiKaQviS4DKKyoA5PmAoBzqMBsYWoA">https://www.typescriptlang.org/play?ts=4.4.4#code/C4TwDgpgBAsiAq5oF4oG8B2BDAthAXFAM7ABOAlhgOYC+A3AFCiSwJIBMUqACqQPY5yRCAB4SFagD5GDAMZ8MJKLKyyAFgSgAlCPNIATMWUpUANK0SRJXdPQYMAZgFcMs4OQVQqEYLwFCIAAoAawgQQnETAEp0Bih4qHIHKECVdQgAbVCQAF0YtDiEotIfJ1IMKAByADE+F31KxiKaQviS4DKKyoA5PmAoBzqMBsYWoA</a></p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/MartinJohns.png?size=40"/>@MartinJohns</span> <a href>at <span class="date">10/24/2023 3:59:31 AM</span></a></span> <div class="comment-body"><blockquote>
+<p>why is the behaviour different when having a <code>Record&lt;string, object&gt;</code> shouldn&#39;t it behave the same if what you wrote above is the cause of the error?</p>
+</blockquote>
+<p>That&#39;s a long standing design limitation involving <code>object</code> resulting in unsoundness. Basically <code>object</code> is always assumed to be truthy, even if falsy primitives are assignable to it. See also #31464. Keep in mind that TypeScript is not designed to have a fully sound type system.</p>
+<p>Can&#39;t say anything other than &quot;this is working as expected&quot; and that enabling <code>noUncheckedIndexedAccess</code> is the intended solution for this. <strong>WiseCerberus</strong> already mentioned why this is not enabled by default. I&#39;m sure if I look a minute or two I can find an exact duplicate of this issue.</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/MartinJohns.png?size=40"/>@MartinJohns</span> <a href>at <span class="date">10/24/2023 4:07:58 AM</span></a></span> <div class="comment-body"><p>Duplicate of #55852, which is marked &quot;Working as Intended&quot;. Not 100 % exact, but essentially the same issue: assuming record access could yield in <code>undefined</code>.</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/rasmusvhansen.png?size=40"/>@rasmusvhansen</span> <a href>at <span class="date">10/24/2023 4:35:55 AM</span></a></span> <div class="comment-body"><blockquote>
+<p>That&#39;s a long standing design limitation involving <code>object</code> resulting in unsoundness. Basically <code>object</code> is always assumed to be truthy, even if falsy primitives are assignable to it. See also #31464. Keep in mind that TypeScript is not designed to have a fully sound type system.</p>
+</blockquote>
+<p>@MartinJohns 
+Using <code>object</code> in the example was a bad idea on my part.</p>
+<p>Please see this example. This example does not allow assigning falsy primitives yet still is inconsistent.</p>
+<pre><code class="language-ts">const key: string = &#39;someKey&#39;;
+const a: Record&lt;string, Promise&lt;string&gt;&gt; = {};
+const b: Record&lt;string, {a: string}&gt; = {};
+// errors here with message about using await
+if (a[key]) console.log(&#39;found&#39;);
+// but not here
+if (b[key]) console.log(&#39;found&#39;)
+</code></pre>
+<p>Would you also say that is working as intended?
+If yes, then the hint about <code>Did you forget to use &#39;await&#39;?&quot;</code> is quite misleading.</p>
+<p>If not, would it be better to open a new issue describing the inconsistent behaviour in the code above?</p>
+<p><a href="https://www.typescriptlang.org/play?ts=4.4.4#code/C4TwDgpgBAsiAq5oF4oG8B2BDAthAXFAM7ABOAlhgOYC+A3AFCiSwJIBMUqACqQPY5yRCAB4SFagD5GDAMZ8MJKLKyyAFgSgAlCPNIATMWUpUANK0SRJXdPQYMAZgFcMs4OQVQqEYLwFCIAAoAawgQQnETAEp0Bih4qHIHKECVdQgAbVCQAF0YtDiEotIfJ1IMKAByADE+F31KxiKaQviS4DKKyoA5PmAoBzqMBsYWoA">https://www.typescriptlang.org/play?ts=4.4.4#code/C4TwDgpgBAsiAq5oF4oG8B2BDAthAXFAM7ABOAlhgOYC+A3AFCiSwJIBMUqACqQPY5yRCAB4SFagD5GDAMZ8MJKLKyyAFgSgAlCPNIATMWUpUANK0SRJXdPQYMAZgFcMs4OQVQqEYLwFCIAAoAawgQQnETAEp0Bih4qHIHKECVdQgAbVCQAF0YtDiEotIfJ1IMKAByADE+F31KxiKaQviS4DKKyoA5PmAoBzqMBsYWoA</a></p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/rasmusvhansen.png?size=40"/>@rasmusvhansen</span> <a href>at <span class="date">10/24/2023 4:38:52 AM</span></a></span> <div class="comment-body"><blockquote>
+<p>Duplicate of #55852, which is marked &quot;Working as Intended&quot;. Not 100 % exact, but essentially the same issue: assuming record access could yield in <code>undefined</code>.</p>
+</blockquote>
+<p>I disagree that this is a duplicate, since the issue I am (trying to) describe is the inconsistent behaviour when accessing these two records without <code>noUncheckedIndexedAccess</code> enabled. Sorry for not being very clear on that.</p>
+<pre><code class="language-ts">const a: Record&lt;string, Promise&lt;string&gt;&gt; = {};
+const b: Record&lt;string, {a: string}&gt; = {};
+</code></pre>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/fatcerberus.png?size=40"/>@fatcerberus</span> <a href>at <span class="date">10/24/2023 4:47:34 AM</span></a></span> <div class="comment-body"><p>Oh, the error you&#39;re seeing is the &quot;did you forget to use <code>await</code>&quot; one, but yeah, that&#39;s intentional too.  It&#39;s designed to catch this mistake:</p>
+<pre><code class="language-ts">const foo = getFooAsync();  // returns a promise
+if (foo) {  // oops, always truthy but you probably just forgot to await the promise
+    // do stuff
+}
+</code></pre>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/MartinJohns.png?size=40"/>@MartinJohns</span> <a href>at <span class="date">10/24/2023 4:47:40 AM</span></a></span> <div class="comment-body"><blockquote>
+<p>I disagree that this is a duplicate, since the issue I am (trying to) describe is the inconsistent behaviour when accessing these two records without <code>noUncheckedIndexedAccess</code> enabled.</p>
+</blockquote>
+<p>In that case it&#39;s also intentional, see #25330 (this also matches your changed between versions). This behaviour is irregardless of using a <code>Record&lt;&gt;</code> type - any truthy check of a <code>Promise&lt;&gt;</code> results in the error about a missing <code>await</code>.</p>
+<p>With <code>noUncheckedIndexedAccess</code> enabled you don&#39;t get this error, because now you&#39;re not checking a <code>Promise&lt;T&gt;</code> anymore, you&#39;re checking a <code>Promise&lt;T&gt; | undefined</code>. It&#39;s just an unfortunate combination in this case. I don&#39;t see how the error message could be improved in a meaningful way, without special casing it to the compiler option disabled and accessing a record/property.</p>
+<blockquote>
+<p>Sorry for not being very clear on that.</p>
+</blockquote>
+<p>No sweat.</p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/rasmusvhansen.png?size=40"/>@rasmusvhansen</span> <a href>at <span class="date">10/24/2023 4:55:03 AM</span></a></span> <div class="comment-body"><p>Alright, I guess I hit an interesting edge case where I have not (yet) enabled <code>noUncheckedIndexedAccess</code> on the codebase and I actually want to verify that I get a hit in a cache of promises. A workaround for me is to do
+<code>if (!!cache[key])</code> to convert the <code>Promise | undefined</code> to a <code>boolean</code></p>
+<p>The hint about using await makes sense in most other cases and I agree that it would be probably be hard to improve the message for this special case.</p>
+<p>Thanks for clearing that up for me 👍 </p>
+</div></div><div class="event"><span class="byline"><span class="author"><img src="https://github.com/rasmusvhansen.png?size=40"/>@rasmusvhansen</span> closed <span class="timestamp">at 10/24/2023</span></span></div></div></div></body></html>

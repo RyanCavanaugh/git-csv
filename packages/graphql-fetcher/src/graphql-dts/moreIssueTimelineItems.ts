@@ -2,7 +2,7 @@
 /* eslint-disable */
 // This file was automatically generated and should not be edited.
 
-import { LockReason } from "./globals";
+import { LockReason } from "./globals.js";
 
 // ====================================================
 // GraphQL query operation: moreIssueTimelineItems

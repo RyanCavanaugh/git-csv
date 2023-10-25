@@ -1,0 +1,53 @@
+body {
+    background: #333;
+    color: #EEE;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+img {
+    width: 20px;
+    height: 20px;
+    margin-right: 0.5em;
+    border-radius: 6px;
+}
+
+span.byline {
+    line-height: 1.7em;
+    vertical-align: middle;
+    padding-left: 1em;
+}
+
+span.author {
+    font-weight: 600;
+}
+
+a {
+    color: #99E;
+}
+
+h1 {
+    font-size: 120%;
+    font-weight: 500;
+}
+
+div.event {
+    border-radius: 15px;
+    border: solid #444 1px;
+    margin: 5px;
+    max-width: 50em;
+    padding-top: 0.3em;
+}
+
+div.comment-body p {
+    margin: 0.2em;
+}
+
+div.comment-body {
+    padding-left: 1em;
+    padding-right: 1em;
+    max-width: 60em;
+}
+
+div.events {
+    margin-left: 1em;
+}

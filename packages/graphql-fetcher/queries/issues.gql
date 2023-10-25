@@ -1,4 +1,5 @@
 # import issue-timeline-item.gql
+# import issue-info.gql
 
 query issues($owner: String!, $repoName: String!, $itemsPerPage: Int, $cursor: String = null, $states: [IssueState!] = OPEN) {
   repository(owner: $owner, name: $repoName) {
