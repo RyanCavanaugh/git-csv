@@ -14,7 +14,7 @@ main();
 
 async function main() {
     const items = await loadIssues();
-    fs.writeFile("report.html", ssr.render(<HTML issues={items} />));
+    fs.writeFile(path.join(__dirname, "../report.html"), ssr.render(<HTML issues={items} />));
 }
 
 function isRecentTimelineItem(item: io.TimelineItem) {
@@ -39,9 +39,10 @@ async function loadIssues() {
                 url: data.url,
                 number: data.number.toString(),
                 events: data.timelineItems.nodes.filter(notNull),
-                updatedAt: data.updatedAt
+                updatedAt: data.updatedAt,
+                reactions: data.reactionGroups,
+                state: data.closed ? "OPEN" as const : "CLOSED" as const
             });
-            console.log(data.title);
         }
     }
     itemsToRender.sort((a, b) => {
@@ -75,10 +76,12 @@ function HTML(top: HtmlProps) {
 
 type IssueProps = {
     number: string;
+    state: "OPEN" | "CLOSED" | "MERGED";
     url: string;
     title: string;
     events: io.TimelineItem[];
     updatedAt: string;
+    reactions: io.Reactions;
 }
 function Issue(props: IssueProps) {
     const eventsToShow = [...props.events];
@@ -86,17 +89,25 @@ function Issue(props: IssueProps) {
     for (let i = 1; i < eventsToShow.length; i++) {
         if (isRecentTimelineItem(eventsToShow[i])) {
             eventsToShow.splice(0, i - 1);
-            console.log(i);
             break;
         }
     }
 
     return <div class="issue">
-        <h1><a href={props.url}><span class="number-ref">#{props.number}</span></a> {props.title}</h1>
+        <h1><a href={props.url}><Symbol {...props} /> <span class="number-ref">#{props.number}</span></a> {props.title}</h1>
+        <ReactionBar reactions={props.reactions} />
         <div class="events">
             {...eventsToShow.map((e, k) => <Event key={k} {...e} />)}
         </div>
     </div>;
+}
+
+function Symbol(props: IssueProps) {
+    if (props.url.includes("/issues/")) {
+        return <span class={props.state}>⊚</span>;
+    } else {
+        return <span class={props.state}>∏</span>;
+    }
 }
 
 function getActor(item: io.TimelineItem) {
@@ -125,6 +136,30 @@ function TimeDisplay({ date }: { date: Date}) {
         text = `on ${date.toLocaleDateString()}`;
     }
     return <span title={date.toLocaleDateString() + " " + date.toLocaleTimeString()}>{text}</span>;
+}
+
+function ReactionBar(props: { reactions: io.Reactions }) {
+    const parts: React.JSX.Element[] = [];
+    const lookup: any = {
+        "THUMBS_UP": "👍",
+        "THUMBS_DOWN": "👎",
+        "HEART": "❤️",
+        "HOORAY": "🎉",
+        "EYES": "👀",
+        "ROCKET": "🚀",
+        "CONFUSED": "😕",
+        "LAUGH": "😆"
+    }
+    for (const p of props.reactions) {
+        if (p.reactors.totalCount > 0) {
+            parts.push(<span class="reaction-group">
+                <span class="emoji">{lookup[p.content] ?? p.content}</span>
+                <span class="count">{p.reactors.totalCount}</span>
+            </span>);
+        }
+    }
+    if (parts.length === 0) return <></>;
+    return <div class="reaction-bar">{...parts}</div>;
 }
 
 function LinkTo(props: { item: io.TimelineItem, children: any }) {
@@ -195,7 +230,10 @@ function SimpleAction(props: io.TimelineItem) {
 }
 
 function Comment(props: io.IssueCommentEvent) {
-    return <div class="comment-body" dangerouslySetInnerHTML={{ __html: props.bodyHTML }} />;
+    return <>
+        <div class="comment-body" dangerouslySetInnerHTML={{ __html: props.bodyHTML }} />
+        <ReactionBar reactions={props.reactionGroups} />
+    </>;
 }
 
 function LabelEventDisplay(props: io.TimelineItem & { __typename: "LabeledEvent" | "UnlabeledEvent" }) {

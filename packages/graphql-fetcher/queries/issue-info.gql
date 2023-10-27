@@ -17,6 +17,7 @@ fragment issueInfo on Issue {
         }
     }
     closed
+    state
     locked
     milestone { id, title }
     assignees(first: 10) {

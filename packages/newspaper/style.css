@@ -37,6 +37,7 @@ span.author {
 
 a {
     color: #99E;
+    text-decoration: none;;
 }
 
 h1 {
@@ -83,6 +84,21 @@ span.label {
     padding-left: 0.2lh;
     padding-right: 0.2lh;
 }
+
 span.label.bright {
     color: black;
+}
+
+div.reaction-bar {
+    margin-bottom: 12px;
+}
+
+span.reaction-group {
+    background: #232;
+    border-radius: 0.3lh;
+    padding-left: 0.2lh;
+    padding-right: 0.2lh;
+    padding-top: 0.2lh;
+    padding-bottom: 0.2lh;
+    margin-right: 0.6em;
 }
