@@ -1,0 +1,15 @@
+# import issue-info.gql
+
+query issue($owner: String!, $repoName: String!, $issueNumber: Int!) {
+  repository(owner: $owner, name: $repoName) {
+    issue(number: $issueNumber) {
+        ...issueInfo
+    }
+  }
+  rateLimit {
+    cost
+    limit
+    remaining
+    resetAt
+  }
+}

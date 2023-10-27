@@ -4,7 +4,7 @@ import * as path from "path";
 import { PathReporter } from "io-ts/lib/PathReporter.js";
 import { isLeft } from "fp-ts/lib/Either.js";
 
-const testPath = "D:/github/git-csv/graphql_data/ts-all/microsoft/TypeScript/pr/";
+const testPath = "D:/github/git-csv/data/recent/microsoft/TypeScript/";
 
 for (const test of await fs.readdir(testPath)) {
     const filePath = path.join(testPath, test);

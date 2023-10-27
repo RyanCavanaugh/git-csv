@@ -1,13 +1,19 @@
-fragment issueTimelineItem on IssueTimelineItem {
+fragment issueTimelineItem on IssueTimelineItems {
   __typename
   ... on IssueComment {
     id
     author { login }
+    authorAssociation
     body
+    bodyHTML
     createdAt
     url
-    thumbsUps: reactions(content: THUMBS_UP) { totalCount }
-    thumbsDowns: reactions(content: THUMBS_DOWN) { totalCount }
+    minimizedReason
+    isMinimized
+    reactionGroups {
+      content
+      reactors { totalCount }
+    }
   }
   ... on AssignedEvent {
     createdAt

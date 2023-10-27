@@ -1,5 +1,13 @@
 import * as io from "io-ts";
 
+export type Reactions = io.TypeOf<typeof Reactions>;
+export const Reactions = io.readonlyArray(io.type({
+    content: io.string,
+    reactors: io.type({
+        totalCount: io.number
+    })
+}));
+
 export type Login = io.TypeOf<typeof Login>;
 export const Login = io.type({
     login: io.string
@@ -49,10 +57,11 @@ export const IssueCommentEvent = io.type({
     __typename: io.literal("IssueComment"),
     id: io.string,
     author: OrNull(Login),
+    url: io.string,
     body: io.string,
+    bodyHTML: io.string,
     createdAt: io.string,
-    thumbsUps: ThumbCount,
-    thumbsDowns: ThumbCount
+    reactionGroups: Reactions
 });
 
 export const ClosedEvent = io.type({
@@ -131,6 +140,7 @@ export const Issue = io.type({
     id: io.string,
     number: io.number,
     createdAt: io.string,
+    updatedAt: io.string,
     title: io.string,
     url: io.string,
     author: OrNull(Login),
@@ -141,11 +151,11 @@ export const Issue = io.type({
         id: io.string,
         title: io.string
     })),
-    assignees: EdgeArrayOfNodes(Login),
-    thumbsUps: ThumbCount,
-    thumbsDowns: ThumbCount,
-    labels: EdgeArrayOfNodes(Label),
-    timelineItems: EdgeArrayOfNodes(TimelineItem)
+    assignees: ArrayOfNodes(Login),
+    reactionGroups: Reactions,
+
+    labels: ArrayOfNodes(Label),
+    timelineItems: ArrayOfNodes(TimelineItem)
 } as const);
 
 export function OtherEventType<const T extends string>(s: T) {
@@ -154,12 +164,10 @@ export function OtherEventType<const T extends string>(s: T) {
     });
 }
 
-export function EdgeArrayOfNodes<T extends io.Type<any, any, any>>(type: T) {
+export function ArrayOfNodes<T extends io.Type<any, any, any>>(type: T) {
     return io.type({
-        edges: io.readonlyArray(
-            io.union([io.null, io.type({
-                node: type
-            })])
+        nodes: io.readonlyArray(
+            io.union([io.null, type])
         )
     });
 }

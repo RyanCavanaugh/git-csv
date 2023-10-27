@@ -1,17 +1,15 @@
 # import issue-timeline-item.gql
 
-query moreIssueTimelineItems($owner: String!, $repoName: String!, $itemNumber: Int!, $cursor: String) {
+query moreIssueTimelineItems($owner: String!, $repoName: String!, $issueNumber: Int!, $cursor: String) {
   repository(owner: $owner, name: $repoName) {
-    issue(number: $itemNumber) {
+    issue(number: $issueNumber) {
       timelineItems(first: 100, after: $cursor, itemTypes: [ISSUE_COMMENT, ASSIGNED_EVENT, CLOSED_EVENT, REOPENED_EVENT, LABELED_EVENT, UNLABELED_EVENT, LOCKED_EVENT, UNLOCKED_EVENT, MILESTONED_EVENT, DEMILESTONED_EVENT]) {
         pageInfo {
           hasNextPage
           endCursor
         }
-        edges {
-          node {
-            ...issueTimelineItem
-          }
+        nodes {
+          ...issueTimelineItem
         }
       }
     }

@@ -3,26 +3,31 @@ query($owner:String!, $repoName: String!) {
     open_issues: issues(first: 100, states: OPEN, orderBy: { field: UPDATED_AT, direction: DESC }) {
       nodes {
         number
+        updatedAt
       }
     }
     closed_issues: issues(first: 100, states: CLOSED, orderBy: { field: UPDATED_AT, direction: DESC }) {
       nodes {
         number
+        updatedAt
       }
     }
     open_prs:pullRequests(first: 100, states: OPEN, orderBy: { field: UPDATED_AT, direction: DESC } ) {
       nodes {
         number
+        updatedAt
       }
     }
     merged_prs:pullRequests(first: 100, states: MERGED, orderBy: { field: UPDATED_AT, direction: DESC } ) {
       nodes {
         number
+        updatedAt
       }
     }
     closed_prs:pullRequests(first: 100, states: CLOSED, orderBy: { field: UPDATED_AT, direction: DESC } ) {
       nodes {
         number
+        updatedAt
       }
     }
   }

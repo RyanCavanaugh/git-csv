@@ -6,8 +6,6 @@ fragment prTimelineItem on PullRequestTimelineItems {
     authorAssociation
     body
     createdAt
-    thumbsUps: reactions(content: THUMBS_UP) { totalCount }
-    thumbsDowns: reactions(content: THUMBS_DOWN) { totalCount }
     reviewState: state
   }
   ... on ReviewRequestedEvent {
@@ -28,10 +26,19 @@ fragment prTimelineItem on PullRequestTimelineItems {
   ... on IssueComment {
     id
     author { login }
+    authorAssociation
     body
+    bodyHTML
     createdAt
-    thumbsUps: reactions(content: THUMBS_UP) { totalCount }
-    thumbsDowns: reactions(content: THUMBS_DOWN) { totalCount }
+    url
+    minimizedReason
+    isMinimized
+    reactionGroups {
+        content
+        reactors {
+            totalCount
+        }
+    }
   }
   ... on AssignedEvent {
     createdAt

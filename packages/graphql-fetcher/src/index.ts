@@ -5,7 +5,8 @@ import * as MoreIssueTimelineItemsQuery from './graphql-dts/moreIssueTimelineIte
 import * as MorePrTimelineItemsQuery from './graphql-dts/morePrTimelineItems.js';
 import * as url from 'url';
 import * as path from 'path';
-import axios from 'axios';
+import { query } from './graphql-query.js';
+import { sleep } from './utils.js';
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
@@ -18,64 +19,6 @@ type PullRequest = PullRequestQuery.prs_repository_pullRequests_edges_node;
 type PullRequestQueryResult = PullRequestQuery.prs;
 type PullRequestTimelineItem = MorePrTimelineItemsQuery.morePrTimelineItems_repository_pullRequest_timelineItems_edges;
 
-async function doGraphQL(definitionFileName: string, variables: object | null): Promise<unknown> {
-    if (doGraphQL.lastRateLimit) {
-        if (doGraphQL.lastRateLimit.cost * 10 > doGraphQL.lastRateLimit.remaining) {
-            const reset = new Date(doGraphQL.lastRateLimit.resetAt);
-            console.log(`Waiting until ${reset.toLocaleTimeString()} for rate limit to reset`);
-            await sleep(+reset - +(new Date()));
-        }
-    }
-
-    const importedGqls = new Map<string, true>();
-
-    const lines = [`# import ${definitionFileName}`];
-    for (let i = 0; i < lines.length; i++) {
-        const match = /^# import (.+)$/.exec(lines[i]);
-        if (match !== null) {
-            const importTarget = match[1];
-            if (importedGqls.has(importTarget)) continue;
-            importedGqls.set(importTarget, true);
-            const importedContent = await fs.readFile(path.join(queriesRoot, importTarget), { encoding: "utf-8" });
-            const importedLines = importedContent.split(/\r?\n/g);
-            lines.splice(i, 1, ...importedLines);
-            i--;
-        }
-    }
-    const query = lines.join("\n");
-
-    const token = await fs.readFile(path.join(__dirname, "../../../../api-auth-token.txt"), { encoding: "utf-8" });
-    const url = `https://api.github.com/graphql`;
-    const data = (variables === null) ? { query } : { query, variables };
-
-    doGraphQL.lastQueryData = JSON.stringify(data, undefined, 2);
-    const result = await axios(url, {
-        headers: {
-            "Authorization": `bearer ${token}`,
-            "User-Agent": "RyanCavanaugh/git-csv"
-        },
-        method: "POST",
-        data
-    });
-
-    if (result.status !== 200) {
-        console.error(result.statusText);
-        throw new Error(result.statusText);
-    }
-    if (result.data && "rateLimit" in result.data.data) {
-        doGraphQL.lastRateLimit = result.data.data.rateLimit as IssueQueryResult["rateLimit"];
-    }
-    return result.data.data;
-}
-doGraphQL.lastRateLimit = undefined as undefined | IssueQueryResult["rateLimit"];
-doGraphQL.lastQueryData = "";
-
-function sleep(ms: number): Promise<void> {
-    return new Promise(resolve => {
-        setTimeout(resolve, ms)
-    });
-}
-
 async function getRemainingItemTimelineItems(kind: ItemKind, owner: string, repoName: string, itemNumber: number, cursor: string): Promise<readonly (IssueTimelineItem | PullRequestTimelineItem)[]> {
     const variables = {
         owner,
@@ -84,34 +27,7 @@ async function getRemainingItemTimelineItems(kind: ItemKind, owner: string, repo
         cursor
     };
     const queryName = kind === "pr" ? "more-pr-timeline-items.gql" : "more-issue-timeline-items.gql"
-    let root;
-    let retryCount = 5;
-    while (retryCount > 0) {
-        try {
-            root = (await doGraphQL(queryName, variables)) as (MoreIssueTimelineItemsQuery.moreIssueTimelineItems | MorePrTimelineItemsQuery.morePrTimelineItems);
-            break;
-        } catch (e: any) {
-            if (e.response && e.response.status === 403) {
-                // Abuse detection; back off
-                console.log("Backing off from abuse detection");
-                await sleep(60 * 1000);
-                continue;
-            }
-            console.log(`Error during timeline fetch: ${e.message}; retry`);
-            if (e.response) {
-                console.log(`  data: ${JSON.stringify(e.response.data, undefined, 2)}`);
-                console.log(`  status: ${e.response.status}`);
-                console.log(`  headers: ${JSON.stringify(e.response.headers, undefined, 2)}`);
-            }
-            await sleep(3000);
-            if (--retryCount === 0) {
-                console.log(`Fatal error`);
-                await fs.writeFile(`last-query.txt`, doGraphQL.lastQueryData, { encoding: "utf-8" });
-                process.exit(-1);
-            }
-        }
-    }
-
+    let root = (await query(queryName, variables)) as (MoreIssueTimelineItemsQuery.moreIssueTimelineItems | MorePrTimelineItemsQuery.morePrTimelineItems);
     let edges;
     let pageInfo;
     if (kind === "pr") {
@@ -162,7 +78,7 @@ export async function queryRepoIssuesOrPullRequests(kind: ItemKind, owner: strin
         queryCount++;
         if (queryCount === 10) {
             queryCount = 0;
-            console.log(`${itemCount} items fetched. Rate limit: ${JSON.stringify(doGraphQL.lastRateLimit)}`);
+            console.log(`${itemCount} items fetched`);
         }
     } while (nextCursor !== null);
 
@@ -178,7 +94,7 @@ export async function queryRepoIssuesOrPullRequests(kind: ItemKind, owner: strin
                 states
             };
             try {
-                root = (await doGraphQL(queryName, variables)) as IssueQueryResult | PullRequestQueryResult;
+                root = (await query(queryName, variables)) as IssueQueryResult | PullRequestQueryResult;
                 break;
             } catch (e: any) {
                 if (e.response && e.response.status === 403) {

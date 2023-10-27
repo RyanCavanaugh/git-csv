@@ -1,0 +1,16 @@
+# import pr-timeline-item.gql
+# import pr-info.gql
+
+query pr($owner: String!, $repoName: String!, $prNumber: Int!) {
+  repository(owner: $owner, name: $repoName) {
+    pullRequest(number: $prNumber) {
+        ...prInfo
+    }
+  }
+  rateLimit {
+    cost
+    limit
+    remaining
+    resetAt
+  }
+}

@@ -1,17 +1,15 @@
 # import pr-timeline-item.gql
 
-query morePrTimelineItems($owner: String!, $repoName: String!, $itemNumber: Int!, $cursor: String) {
+query morePrTimelineItems($owner: String!, $repoName: String!, $prNumber: Int!, $cursor: String) {
   repository(owner: $owner, name: $repoName) {
-    pullRequest(number: $itemNumber) {
+    pullRequest(number: $prNumber) {
       timelineItems(first: 100, after: $cursor) {
         pageInfo {
           hasNextPage
           endCursor
         }
-        edges {
-          node {
-            ...prTimelineItem
-          }
+        nodes {
+          ...prTimelineItem
         }
       }
     }
