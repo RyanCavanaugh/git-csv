@@ -42,7 +42,9 @@ async function loadIssues() {
                 updatedAt: data.updatedAt,
                 reactions: data.reactionGroups,
                 state: (data as any).state ?? (data.closed ? "OPEN" as const : "CLOSED" as const),
-                labels: data.labels.nodes.filter(notNull)
+                labels: data.labels.nodes.filter(notNull),
+                assignedTo: data.assignees?.nodes[0]?.login,
+                milestone: data.milestone?.title
             });
         }
     }
@@ -84,7 +86,10 @@ type IssueProps = {
     labels: readonly io.Label[];
     updatedAt: string;
     reactions: io.Reactions;
+    assignedTo: string | null | undefined;
+    milestone: string | undefined;
 }
+
 function Issue(props: IssueProps) {
     const eventsToShow = [...props.events];
     // Find the first new event; remove everything before the one before that
@@ -97,7 +102,11 @@ function Issue(props: IssueProps) {
 
     return <div class="issue">
         <h1><a href={props.url}><Symbol {...props} /> <span class="number-ref">#{props.number}</span></a> {props.title}</h1>
-        <>{...props.labels.map(lbl => <LabelDisplay {...lbl} />)}</>
+        <span class="info-bar">
+            {...props.labels.map(lbl => <LabelDisplay {...lbl} />)}
+            {props.assignedTo ? <Avatar user={props.assignedTo}/> : null}
+            {props.milestone ? <Milestone name={props.milestone} /> : null}
+        </span>
         <ReactionBar reactions={props.reactions} />
         <div class="events">
             {...eventsToShow.map((e, k) => <Event key={k} {...e} />)}
@@ -172,6 +181,10 @@ function LinkTo(props: { item: io.TimelineItem, children: any }) {
     return props.children;
 }
 
+function Milestone(props: { name: string }) {
+    return <span class="milestone">🕟 {props.name}</span>;
+}
+
 function Event(props: io.TimelineItem) {
     const author = getActor(props);
     const date = "createdAt" in props ? new Date(props.createdAt) : null;
@@ -184,6 +197,9 @@ function Event(props: io.TimelineItem) {
     }
     if (props.__typename === "LabeledEvent" || props.__typename == "UnlabeledEvent") {
         return <LabelEventDisplay {...props} />;
+    }
+    if (props.__typename === "AssignedEvent") {
+        return <AssignedTo {...props} />;
     }
 
     return <div class="event">
@@ -202,7 +218,6 @@ function getSimpleVerb(props: io.TimelineItem) {
         case "ReopenedEvent": return "reopened";
         case "LockedEvent": return "locked";
         case "MilestonedEvent": return "milestoned";
-        case "AssignedEvent": return "assigned";
         case "UnassignedEvent": return "unassigned";
     }
     return null;
@@ -226,6 +241,21 @@ function SimpleAction(props: io.TimelineItem) {
             <Avatar user={author} />
             &nbsp;
             {getSimpleVerb(props)}
+            &nbsp;
+            <DateDisplay date={date} />
+        </span>
+    </div>;
+}
+
+function AssignedTo(props: io.AssignedEvent) {
+    const author = getActor(props);
+    const date = "createdAt" in props ? new Date(props.createdAt) : null;
+
+    return <div class="event">
+        <span class="oneliner">
+            <Avatar user={author} />
+            &nbsp;assigned&nbsp;
+            <Avatar user={props.assignee?.login ?? "ghost"} />
             &nbsp;
             <DateDisplay date={date} />
         </span>
