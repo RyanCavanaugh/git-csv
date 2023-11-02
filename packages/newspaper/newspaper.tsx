@@ -41,7 +41,8 @@ async function loadIssues() {
                 events: data.timelineItems.nodes.filter(notNull),
                 updatedAt: data.updatedAt,
                 reactions: data.reactionGroups,
-                state: data.closed ? "OPEN" as const : "CLOSED" as const
+                state: (data as any).state ?? (data.closed ? "OPEN" as const : "CLOSED" as const),
+                labels: data.labels.nodes.filter(notNull)
             });
         }
     }
@@ -80,6 +81,7 @@ type IssueProps = {
     url: string;
     title: string;
     events: io.TimelineItem[];
+    labels: readonly io.Label[];
     updatedAt: string;
     reactions: io.Reactions;
 }
@@ -95,6 +97,7 @@ function Issue(props: IssueProps) {
 
     return <div class="issue">
         <h1><a href={props.url}><Symbol {...props} /> <span class="number-ref">#{props.number}</span></a> {props.title}</h1>
+        <>{...props.labels.map(lbl => <LabelDisplay {...lbl} />)}</>
         <ReactionBar reactions={props.reactions} />
         <div class="events">
             {...eventsToShow.map((e, k) => <Event key={k} {...e} />)}
@@ -120,7 +123,7 @@ function getActor(item: io.TimelineItem) {
     return "ghost";
 }
 
-function TimeDisplay({ date }: { date: Date}) {
+function TimeDisplay({ date }: { date: Date }) {
     const diff = Date.now() - +date;
     const minutes = Math.floor(diff / (1000 * 60));
     const hours = Math.ceil(minutes / 60);
@@ -237,27 +240,33 @@ function Comment(props: io.IssueCommentEvent) {
 }
 
 function LabelEventDisplay(props: io.TimelineItem & { __typename: "LabeledEvent" | "UnlabeledEvent" }) {
-    const style: any = {
-        backgroundColor: '#' + props.label.color
-    };
-    const luminance =
-        parseInt(props.label.color.substring(0, 2), 16) * 0.212 +
-        parseInt(props.label.color.substring(2, 4), 16) * 0.715 +
-        parseInt(props.label.color.substring(4, 6), 16) * 0.07;
-    if (luminance > 128) {
-        style.color = 'black';
-    }
     return <div class="event">
         <span class="oneliner">
             <Avatar user={props.actor.login} />
             &nbsp;
             {props.__typename === "LabeledEvent" ? "added" : "removed"}
             &nbsp;
-            <span class="label" style={style}>{props.label.name}</span>
+            <LabelDisplay {...props.label} />
             &nbsp;
             <DateDisplay date={new Date(props.createdAt)} />
         </span>
     </div>;
+}
+
+function LabelDisplay(props: io.Label) {
+    const style: any = {
+        backgroundColor: '#' + props.color
+    };
+    const luminance =
+        parseInt(props.color.substring(0, 2), 16) * 0.212 +
+        parseInt(props.color.substring(2, 4), 16) * 0.715 +
+        parseInt(props.color.substring(4, 6), 16) * 0.07;
+
+    if (luminance > 128) {
+        style.color = 'black';
+    }
+
+    return <span class="label" style={style}>{props.name}</span>;
 }
 
 function notNull<T>(x: T | null): x is T {

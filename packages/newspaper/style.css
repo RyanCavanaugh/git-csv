@@ -12,7 +12,8 @@ div#main {
     align-items: center;
     gap: 10px;
     height: auto;
-    width: 100vw;
+    width: 95vw;
+
 }
 
 img {
@@ -68,6 +69,7 @@ div.event {
 div.comment-body {
     padding-right: 1em;
     max-width: 60em;
+    overflow-x: clip;
 }
 
 div.comment-body p {
@@ -101,4 +103,14 @@ span.reaction-group {
     padding-top: 0.2lh;
     padding-bottom: 0.2lh;
     margin-right: 0.6em;
+}
+
+a span.CLOSED {
+    color: #B00;
+}
+a span.OPEN {
+    color: #0A0;
+}
+a span.MERGED {
+    color: #909;
 }
