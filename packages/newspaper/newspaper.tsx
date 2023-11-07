@@ -44,7 +44,8 @@ async function loadIssues() {
                 state: (data as any).state ?? (data.closed ? "OPEN" as const : "CLOSED" as const),
                 labels: data.labels.nodes.filter(notNull),
                 assignedTo: data.assignees?.nodes[0]?.login,
-                milestone: data.milestone?.title
+                milestone: data.milestone?.title,
+                author: data.author?.login ?? null
             });
         }
     }
@@ -78,6 +79,7 @@ function HTML(top: HtmlProps) {
 }
 
 type IssueProps = {
+    author: string | null;
     number: string;
     state: "OPEN" | "CLOSED" | "MERGED";
     url: string;
@@ -103,6 +105,7 @@ function Issue(props: IssueProps) {
     return <div class="issue">
         <h1><a href={props.url}><Symbol {...props} /> <span class="number-ref">#{props.number}</span></a> {props.title}</h1>
         <span class="info-bar">
+            by {props.author ? <Avatar user={props.author}/> : null}
             {...props.labels.map(lbl => <LabelDisplay {...lbl} />)}
             {props.assignedTo ? <Avatar user={props.assignedTo}/> : null}
             {props.milestone ? <Milestone name={props.milestone} /> : null}
