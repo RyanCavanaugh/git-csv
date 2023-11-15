@@ -60,7 +60,7 @@ async function doGraphQL(definitionFileName: string, variables: object | null): 
         }
     }
     const query = lines.join("\n");
-    const token = await fs.readFile(path.join(__dirname, "../../../../api-auth-token.txt"), { encoding: "utf-8" });
+    const token = (await fs.readFile(path.join(__dirname, "../../../../api-auth-token.txt"), { encoding: "utf-8" })).trim();
     const url = `https://api.github.com/graphql`;
     const data = (variables === null) ? { query } : { query, variables };
 
