@@ -1,9 +1,11 @@
 {
     "files": [],
     "references": [
+        { "path": "./packages/auto-triage" },
         { "path": "./packages/common" },
         { "path": "./packages/graphql-io" },
         { "path": "./packages/graphql-fetcher" },
         { "path": "./packages/newspaper" },
+        { "path": "./packages/make-activity-reports" }
     ]
 }

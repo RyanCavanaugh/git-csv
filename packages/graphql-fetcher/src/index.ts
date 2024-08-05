@@ -1,4 +1,3 @@
-import * as fs from 'fs/promises';
 import * as PullRequestQuery from './graphql-dts/prs.js';
 import * as IssuesQuery from './graphql-dts/issues.js';
 import * as MoreIssueTimelineItemsQuery from './graphql-dts/moreIssueTimelineItems.js';

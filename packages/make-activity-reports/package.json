@@ -1,0 +1,16 @@
+{
+    "name": "@ryancavanaugh/git-csv-make-activity-reports",
+    "version": "1.0.0",
+    "type": "module",
+    "description": "",
+    "main": "dist/index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "dependencies": {
+        "@ryancavanaugh/git-csv-graphql-io": "*"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC"
+}

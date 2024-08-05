@@ -18,17 +18,28 @@ fragment issueInfo on Issue {
     }
     closed
     state
+    stateReason
     locked
+    activeLockReason
     milestone { id, title }
     assignees(first: 10) {
         nodes {
-        login
+            login
         }
     }
-    
+
+    closedByPullRequestsReferences(first:100, includeClosedPrs: true) {
+        nodes {
+            number
+            updatedAt
+            merged
+            mergedAt
+        }
+    }
+
     labels(first: 15) {
         nodes {
-        id, name, color
+            id, name, color
         }
     }
     timelineItems(first: 100, itemTypes: [ISSUE_COMMENT, ASSIGNED_EVENT, CLOSED_EVENT, REOPENED_EVENT, LABELED_EVENT, UNLABELED_EVENT, LOCKED_EVENT, UNLOCKED_EVENT, MILESTONED_EVENT, DEMILESTONED_EVENT]) {

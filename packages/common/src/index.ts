@@ -1,6 +1,10 @@
-import * as url from 'url';
 import * as path from 'path';
 
-const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
+export const DataDirectory = path.join(import.meta.dirname, "../../../data/");
 
-export const DataDirectory = path.join(__dirname, "../../../data");
+export const PredefinedDirectories = {
+    all: path.join(DataDirectory, "all"),
+    recent: path.join(DataDirectory, "recent")
+};
+
+export const ReportDirectory = path.join(import.meta.dirname, "../../../reports/");

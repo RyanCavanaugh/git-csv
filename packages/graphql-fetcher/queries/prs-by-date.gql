@@ -1,16 +1,23 @@
-query($owner:String!, $repoName: String!) {
+query($owner:String!, $repoName: String!, $cursor: String = null) {
   repository(owner: $owner, name: $repoName) {
-    pullRequests(first: 100, states: [OPEN, MERGED, CLOSED], orderBy: { field: CREATED_AT, direction: ASC }) {
+    pullRequests(first: 100, states: [OPEN, MERGED, CLOSED], orderBy: { field: CREATED_AT, direction: ASC }, after: $cursor) {
       pageInfo {
         hasNextPage
         endCursor
       }
       nodes {
         number
+        updatedAt
         timelineItems {
           totalCount
         }
       }
     }
+  }
+  rateLimit {
+    cost
+    limit
+    remaining
+    resetAt
   }
 }

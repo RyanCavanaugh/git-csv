@@ -4,9 +4,11 @@ data-old/
 bin/
 node_modules/
 *.csv
+*.html
 embeds/
 report.md
 viz.txt
 last-query.txt
 **/dist/
 embeds_old/
+**/.tsbuildinfo

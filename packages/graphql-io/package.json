@@ -2,10 +2,15 @@
   "name": "@ryancavanaugh/git-csv-graphql-io",
   "version": "1.0.0",
   "type": "module",
-  "description": "",
-  "main": "dist/index.js",
+  "exports": {
+    "./*": "./dist/*"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@ryancavanaugh/git-csv-common": "*",
+    "zod": "^3.23.8"
   },
   "keywords": [],
   "author": "",

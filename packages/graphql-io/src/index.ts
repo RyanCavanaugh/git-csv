@@ -1,102 +1,102 @@
-import * as io from "io-ts";
+import * as z from "zod";
 
-export type Reactions = io.TypeOf<typeof Reactions>;
-export const Reactions = io.readonlyArray(io.type({
-    content: io.string,
-    reactors: io.type({
-        totalCount: io.number
+export type Reactions = z.TypeOf<typeof Reactions>;
+export const Reactions = z.array(z.object({
+    content: z.string(),
+    reactors: z.object({
+        totalCount: z.number()
     })
-}));
+})).readonly();
 
-export type Login = io.TypeOf<typeof Login>;
-export const Login = io.type({
-    login: io.string
+export type Login = z.TypeOf<typeof Login>;
+export const Login = z.object({
+    login: z.string()
 });
 
-export type Label = io.TypeOf<typeof Label>;
-export const Label = io.type({
-    id: io.string,
-    name: io.string,
-    color: io.string
+export type Label = z.TypeOf<typeof Label>;
+export const Label = z.object({
+    id: z.string(),
+    name: z.string(),
+    color: z.string()
 });
 
-export const ThumbCount = io.type({
-    totalCount: io.number
+export const ThumbCount = z.object({
+    totalCount: z.number()
 });
 
-export type AssignedEvent = io.TypeOf<typeof AssignedEvent>;
-export const AssignedEvent = io.type({
-    __typename: io.literal("AssignedEvent"),
-    createdAt: io.string,
+export type AssignedEvent = z.TypeOf<typeof AssignedEvent>;
+export const AssignedEvent = z.object({
+    __typename: z.literal("AssignedEvent"),
+    createdAt: z.string(),
     actor: OrNull(Login),
     assignee: OrNull(Login)
 });
 
-export const ReopenedEvent = io.type({
-    __typename: io.literal("ReopenedEvent"),
-    createdAt: io.string,
+export const ReopenedEvent = z.object({
+    __typename: z.literal("ReopenedEvent"),
+    createdAt: z.string(),
     actor: OrNull(Login),
 });
 
-export const LabeledEvent = io.type({
-    __typename: io.literal("LabeledEvent"),
-    createdAt: io.string,
-    actor: Login,
+export const LabeledEvent = z.object({
+    __typename: z.literal("LabeledEvent"),
+    createdAt: z.string(),
+    actor: OrNull(Login),
     label: Label
 });
 
-export const UnlabeledEvent = io.type({
-    __typename: io.literal("UnlabeledEvent"),
-    createdAt: io.string,
-    actor: Login,
+export const UnlabeledEvent = z.object({
+    __typename: z.literal("UnlabeledEvent"),
+    createdAt: z.string(),
+    actor: OrNull(Login),
     label: Label
 });
 
-export type IssueCommentEvent = io.TypeOf<typeof IssueCommentEvent>;
-export const IssueCommentEvent = io.type({
-    __typename: io.literal("IssueComment"),
-    id: io.string,
+export type IssueCommentEvent = z.TypeOf<typeof IssueCommentEvent>;
+export const IssueCommentEvent = z.object({
+    __typename: z.literal("IssueComment"),
+    id: z.string(),
     author: OrNull(Login),
-    url: io.string,
-    body: io.string,
-    bodyHTML: io.string,
-    createdAt: io.string,
+    url: z.string(),
+    body: z.string(),
+    bodyHTML: z.string(),
+    createdAt: z.string(),
     reactionGroups: Reactions
 });
 
-export const ClosedEvent = io.type({
-    __typename: io.literal("ClosedEvent"),
-    createdAt: io.string,
+export const ClosedEvent = z.object({
+    __typename: z.literal("ClosedEvent"),
+    createdAt: z.string(),
     actor: OrNull(Login)
 });
 
-export const MilestonedEvent = io.type({
-    __typename: io.literal("MilestonedEvent"),
-    createdAt: io.string,
-    actor: Login,
-    milestoneTitle: io.string
+export const MilestonedEvent = z.object({
+    __typename: z.literal("MilestonedEvent"),
+    createdAt: z.string(),
+    actor: OrNull(Login),
+    milestoneTitle: z.string()
 });
 
-export const DemilestonedEvent = io.type({
-    __typename: io.literal("DemilestonedEvent"),
-    createdAt: io.string,
-    actor: Login,
-    milestoneTitle: io.string
+export const DemilestonedEvent = z.object({
+    __typename: z.literal("DemilestonedEvent"),
+    createdAt: z.string(),
+    actor: OrNull(Login),
+    milestoneTitle: z.string()
 });
 
-export const LockedEvent = io.type({
-    __typename: io.literal("LockedEvent"),
-    createdAt: io.string,
-    actor: Login,
-    lockReason: io.union([io.null, io.string])
+export const LockedEvent = z.object({
+    __typename: z.literal("LockedEvent"),
+    createdAt: z.string(),
+    actor: OrNull(Login),
+    lockReason: z.union([z.null(), z.string()])
 });
 
-export const UnlockedEvent = io.type({
-    __typename: io.literal("UnlockedEvent")
+export const UnlockedEvent = z.object({
+    __typename: z.literal("UnlockedEvent")
 });
 
-export type TimelineItem = io.TypeOf<typeof TimelineItem>;
-export const TimelineItem = io.union([
+export type TimelineItem = z.TypeOf<typeof TimelineItem>;
+export const TimelineItem = z.union([
     AssignedEvent,
     ReopenedEvent,
     LabeledEvent,
@@ -135,44 +135,74 @@ export const TimelineItem = io.union([
     OtherEventType("MarkedAsDuplicateEvent"),
 ]);
 
-export type Issue = io.TypeOf<typeof Issue>;
-export const Issue = io.type({
-    id: io.string,
-    number: io.number,
-    createdAt: io.string,
-    updatedAt: io.string,
-    title: io.string,
-    url: io.string,
+/*
+  "closedByPullRequestsReferences": {
+    "nodes": [
+      {
+        "number": 610,
+        "updatedAt": "2018-06-18T18:38:23Z",
+        "merged": true,
+        "mergedAt": "2014-09-05T22:43:44Z"
+      }
+    ]
+  }
+*/
+
+export type ReferencedPullRequest = z.TypeOf<typeof ReferencedPullRequest>;
+export const ReferencedPullRequest = z.object({
+    number: z.number(),
+    updatedAt: z.string(),
+    merged: z.boolean(),
+    mergedAt: OrNull(z.string())
+});
+
+export type IssueOrPullRequest = z.TypeOf<typeof IssueOrPullRequest>;
+export const IssueOrPullRequest = z.object({
+    id: z.string(),
+    number: z.number(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+    title: z.string(),
+    url: z.string(),
     author: OrNull(Login),
-    body: io.string,
-    closed: io.boolean,
-    locked: io.boolean,
-    milestone: OrNull(io.type({
-        id: io.string,
-        title: io.string
+    body: z.string(),
+    closed: z.boolean(),
+    locked: z.boolean(),
+    activeLockReason: z.union([z.null(), z.literal("RESOLVED"), z.literal("TOO_HEATED"), z.literal("OFF_TOPIC"), z.literal("SPAM")]),
+    milestone: OrNull(z.object({
+        id: z.string(),
+        title: z.string()
     })),
     assignees: ArrayOfNodes(Login),
     reactionGroups: Reactions,
-
     labels: ArrayOfNodes(Label),
     timelineItems: ArrayOfNodes(TimelineItem)
-} as const);
+});
+
+export type PullRequest = z.TypeOf<typeof PullRequest>;
+export const PullRequest = IssueOrPullRequest;
+
+export type Issue = z.TypeOf<typeof Issue>;
+export const Issue = z.intersection(IssueOrPullRequest, z.object({
+    stateReason: z.union([z.null(), z.literal("COMPLETED"), z.literal("NOT_PLANNED"), z.literal("REOPENED")]),
+    closedByPullRequestsReferences: ArrayOfNodes(ReferencedPullRequest),
+}));
 
 export function OtherEventType<const T extends string>(s: T) {
-    return io.type({
-        __typename: io.literal(s)
+    return z.object({
+        __typename: z.literal(s)
     });
 }
 
-export function ArrayOfNodes<T extends io.Type<any, any, any>>(type: T) {
-    return io.type({
-        nodes: io.readonlyArray(
-            io.union([io.null, type])
+export function ArrayOfNodes<T extends z.ZodTypeAny>(type: T) {
+    return z.object({
+        nodes: z.array(
+            z.union([z.null(), type])
         )
     });
 }
 
-export function OrNull<T extends io.Type<any, any, any>>(type: T) {
-    return io.union([io.null, type]);
+export function OrNull<T extends z.ZodTypeAny>(type: T) {
+    return z.union([z.null(), type]);
 }
 
