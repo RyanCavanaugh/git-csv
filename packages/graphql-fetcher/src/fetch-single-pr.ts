@@ -2,6 +2,7 @@ import { query } from "./graphql-query.js";
 
 export async function fetchSinglePr(owner: string, repoName: string, prNumber: string) {
     const queryParams = { owner, repoName, prNumber: +prNumber };
+    debugger;
     const root: any = await query("single-pr.gql", queryParams);
 
     const prRoot = root.repository?.pullRequest;

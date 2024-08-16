@@ -2,10 +2,7 @@
   "name": "git-csv",
   "version": "1.0.0",
   "workspaces": [
-    "packages/graphql-fetcher",
-    "packages/graphql-io",
-    "packages/newspaper",
-    "packages/common"
+    "packages/*"
   ],
   "description": "Delete data\\issue-index.json",
   "main": "index.js",
@@ -35,8 +32,9 @@
     "typescript": "^5.2.2"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "graphql-schema": "apollo client:codegen --config=apollo.config.js --tag=github --target typescript ../src/graphql-dts --globalTypesFile=src/graphql-dts/globals.ts",
+    "build": "tsc -b -f",
+    "fetch-all": "node packages/graphql-fetcher/dist/download-all-items.js",
+    "csv-report": "node packages/make-activity-reports/dist/cli.js",
     "go": "node bin/runner.js",
     "news": "tsc -b -f && node packages/graphql-fetcher/dist/download-recent-items.js && node packages/newspaper/dist/newspaper.js && start packages/newspaper/report.html"
   },

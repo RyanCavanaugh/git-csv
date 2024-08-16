@@ -12,3 +12,5 @@ last-query.txt
 **/dist/
 embeds_old/
 **/.tsbuildinfo
+reports/
+ai-cache/

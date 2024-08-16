@@ -6,6 +6,7 @@
         { "path": "./packages/graphql-io" },
         { "path": "./packages/graphql-fetcher" },
         { "path": "./packages/newspaper" },
-        { "path": "./packages/make-activity-reports" }
+        { "path": "./packages/make-activity-reports" },
+        { "path": "./packages/cached-ai" }
     ]
 }

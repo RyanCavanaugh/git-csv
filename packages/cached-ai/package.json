@@ -1,5 +1,5 @@
 {
-    "name": "@ryancavanaugh/git-csv-make-activity-reports",
+    "name": "@ryancavanaugh/git-csv-cached-ai",
     "version": "1.0.0",
     "type": "module",
     "description": "",
@@ -9,7 +9,10 @@
     },
     "dependencies": {
         "@ryancavanaugh/git-csv-graphql-io": "*",
-        "@ryancavanaugh/git-csv-cached-ai": "*"
+        "@ryancavanaugh/git-csv-common": "*",
+        "openai": "^4.55.7",
+        "zod": "^3.23.8",
+        "zod-to-json-schema": "^3.23.2"
     },
     "keywords": [],
     "author": "",

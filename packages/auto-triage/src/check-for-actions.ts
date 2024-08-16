@@ -12,7 +12,7 @@ function isOlderThan(date: Date, obj: { years?: number, months?: number }) {
     return (+date) < (now - ms);
 }
 
-forEachIssue("all/microsoft/TypeScript", issue => {
+forEachIssue("all", issue => {
     // Already locked
     if (issue.locked) return;
 

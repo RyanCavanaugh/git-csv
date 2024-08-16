@@ -7,7 +7,13 @@ fragment prInfo on PullRequest {
     updatedAt
     title
     url
+    merged
+    mergedAt
+    mergedBy { login }
+    mergeable
+    isDraft
     author { login }
+    authorAssociation
     body
     bodyHTML
     reactionGroups {
@@ -17,6 +23,7 @@ fragment prInfo on PullRequest {
         }
     }
     closed
+    closedAt
     state
     locked
     milestone { id, title }
@@ -25,13 +32,44 @@ fragment prInfo on PullRequest {
             login
         }
     }
+    closingIssuesReferences (first:100) {
+        nodes {
+            number
+        }
+    }
     
     labels(first: 15) {
         nodes {
             id, name, color
         }
     }
-    timelineItems(first: 100, itemTypes: [ISSUE_COMMENT, ASSIGNED_EVENT, CLOSED_EVENT, REOPENED_EVENT, LABELED_EVENT, UNLABELED_EVENT, LOCKED_EVENT, UNLOCKED_EVENT, MILESTONED_EVENT, DEMILESTONED_EVENT]) {
+    reviews (first:100) {
+        nodes {
+          author { login }
+          state
+          createdAt
+        }
+    }
+
+    timelineItems(first: 100, itemTypes: [
+        ISSUE_COMMENT,
+        ASSIGNED_EVENT,
+        CLOSED_EVENT,
+        REOPENED_EVENT,
+        LABELED_EVENT,
+        UNLABELED_EVENT,
+        LOCKED_EVENT,
+        UNLOCKED_EVENT,
+        MILESTONED_EVENT,
+        DEMILESTONED_EVENT,
+        PULL_REQUEST_COMMIT,
+        PULL_REQUEST_REVIEW,
+        PULL_REQUEST_REVIEW_THREAD,
+        MERGED_EVENT,
+        REVIEW_DISMISSED_EVENT,
+        REVIEW_REQUESTED_EVENT,
+        READY_FOR_REVIEW_EVENT,
+        CONVERT_TO_DRAFT_EVENT]) {
         pageInfo { endCursor, hasNextPage }
         nodes {
             ...prTimelineItem

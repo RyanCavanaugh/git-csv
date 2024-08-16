@@ -1,19 +1,20 @@
 {
-  "name": "newspaper",
+  "name": "@ryancavanaugh/git-csv-newspaper",
   "version": "1.0.0",
+  "type": "module",
   "description": "",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "@types/node": "^20.8.8",
     "@ryancavanaugh/git-csv-graphql-io": "*",
+    "@types/node": "*",
     "marked": "^9.1.2",
     "preact": "^10.18.1",
     "preact-render-to-string": "^6.2.2"
-  }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

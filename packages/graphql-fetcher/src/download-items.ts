@@ -1,6 +1,6 @@
 import { DataDirectory } from "@ryancavanaugh/git-csv-common";
 import { query } from "./graphql-query.js";
-import { mkdir, readFile, writeFile } from "fs/promises";
+import { mkdir, readFile, writeFile, unlink } from "fs/promises";
 import { fetchSingleIssue } from "./fetch-single-issue.js";
 import { fetchSinglePr } from "./fetch-single-pr.js";
 import { join } from "path";
@@ -16,13 +16,18 @@ export type DownloadInfo = {
 }
 
 export async function downloadItems(opts: DownloadInfo) {
-    debugger;
+    const deadLetterPath = "deadletter.txt";
     const { owner, repoName, queryFileName, targetPathName, prNames, issueNames } = opts;
 
     const targetPath = join(DataDirectory, targetPathName, owner, repoName);
     await mkdir(targetPath, { recursive: true });
 
-    let cursor: string | null = null;
+    let cursor: string | null;
+    try {
+        cursor = await readFile(deadLetterPath, "utf-8");
+    } catch {
+        cursor = null;
+    }
     do {
         const queryParams = { owner, repoName, cursor };
         const root: any = await query(queryFileName, queryParams);
@@ -44,9 +49,12 @@ export async function downloadItems(opts: DownloadInfo) {
             }
             if (cursor !== null) {
                 console.log(`Paginating, rate limit at ${root.rateLimit?.remaining}`);
+                await writeFile(deadLetterPath, cursor);
             }
         }
     } while (cursor !== null);
+    console.log("Done; unlinking deadletter");
+    await unlink(deadLetterPath);
 
     async function runCycle(list: ReadonlyArray<{ number: number, updatedAt: string }>, download: (typeof fetchSingleIssue) | (typeof fetchSinglePr)) {
         for (const item of list) {
@@ -56,12 +64,13 @@ export async function downloadItems(opts: DownloadInfo) {
                 const extant = await readFile(targetFilePath, "utf-8");
                 updatedAt = JSON.parse(extant).updatedAt;
             } catch { }
+
             if (item.updatedAt === updatedAt) {
-                console.log(`Up-to-date as of ${updatedAt}`);
-                break;
+                console.log(`${item.number} is already current`);
+            } else {
+                const content = await download(owner, repoName, item.number.toString());
+                writeFile(targetFilePath, JSON.stringify(content, undefined, 2));
             }
-            const content = await download(owner, repoName, item.number.toString());
-            writeFile(targetFilePath, JSON.stringify(content, undefined, 2));
         }
     }
 }

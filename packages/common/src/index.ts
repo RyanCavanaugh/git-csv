@@ -8,3 +8,7 @@ export const PredefinedDirectories = {
 };
 
 export const ReportDirectory = path.join(import.meta.dirname, "../../../reports/");
+
+export const AICacheDirectory = path.join(import.meta.dirname, "../../../ai-cache/");
+
+export const BatchDirectory = path.join(import.meta.dirname, "../../../batches/");

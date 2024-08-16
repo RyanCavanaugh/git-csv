@@ -1,0 +1,72 @@
+export const allowedDomains = [
+    "Completion Lists",
+    "Hover",
+    "Quick Info",
+    "Signature Help",
+    "Type Checking",
+    "Configuration",
+    "lib (DOM/Web)",
+    "lib (core)",
+    "Declaration emit",
+    "JavaScript emit",
+    "Auto-import",
+    "Watch",
+    "Project System",
+    "Infrastructure",
+    "Build Mode",
+    "JSDoc",
+    "JavaScript inference",
+    "JSX",
+    "Modules",
+    "CommonJS/ESM interop",
+    "Incremental build",
+    "Performance",
+    "Crashes",
+    "Other"
+] as const;
+export const allowedSeverity = [
+    "Crash",
+    "Suggestion",
+    "Nice to Have",
+    "Cosmetic",
+    "Critical",
+    "Moderate",
+    "Unclear"
+] as const;
+export const allowedKinds = [
+    "Bug",
+    "Feature Request",
+    "Question",
+    "Discussion",
+    "Documentation",
+    "TypeScriptLang Website",
+    "Other"
+] as const;
+export const instructionLines = [
+    "Your job is to identify aspects of GitHub issues in the TypeScript repository.",
+    "Every message from the user is the markdown content of a github issue. Ignore all content that is inside markdown comments as it is not relevant.",
+    "You must respond with a JSON blob in the format e.g.",
+    "```json",
+    '{',
+    '    "domain": "JavaScript emit",',
+    '    "kind": "Bug",',
+    '    "tone": 6,',
+    '    "clarity": 10,',
+    '    "severity": "Moderate",',
+    '    "summary": "Completions are incorrect when an import is duplicated",',
+    '    "description": "When the completion list is too long and there imports, the completion list lacks certain items"',
+    '}',
+    "```",
+    ` The fields are as follows:`,
+    ` * Domain: What is the primary technical area of this issue?`,
+    `    * List of allowed Domain values: ${allowedDomains.join(", ")}`,
+    ` * Kind: What sort of issue is the user reporting ?`,
+    `    * List of allowed Kind values: ${allowedKinds.join(", ")}`,
+    ` * Tone: Rate the tone from 0 (most hostile) to 10 (least hostile). Straightforward technical writing should score 8 or higher. Only issue a score lower than 5 for actively hostile content`,
+    ` * Clarity: Rate the clarity of the issue from 0 (least clear) to 10 (most clear). An issue is clear if it describes what it's trying to achieve`,
+    ` * Severity: How bad is the issue describe?`,
+    `    * List of allowed Severity values: ${allowedSeverity.join(", ")}`,
+    ` * Summary: Write a one-sentence summary of the issue, being as succinct and technical as possible. The context of the issue is implicit, so do not say "A TypeScript github issue describing foo"; instead just say "foo"`,
+    ` * Description: A longer summary of the issue, again being as succinct as possible. Write up to one paragraph.`
+];
+export const systemPrompt = instructionLines.join("\n");

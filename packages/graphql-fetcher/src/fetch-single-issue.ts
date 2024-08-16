@@ -1,7 +1,6 @@
 import { query } from "./graphql-query.js";
-import { writeFile } from "fs/promises";
 
-export async function fetchSingleIssue(owner: string, repoName: string, issueNumber: string) {
+export async function fetchSingleIssue(owner: string, repoName: string, issueNumber: string): Promise<object> {
     const queryParams = { owner, repoName, issueNumber: +issueNumber };
     const root: any = await query("single-issue.gql", queryParams);
 

@@ -1,9 +1,13 @@
-import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { createTable } from './csv.js';
 import type * as Types from "@ryancavanaugh/git-csv-graphql-io/index.js";
-import { forEachIssue } from '@ryancavanaugh/git-csv-graphql-io/utils.js';
+import { forEachIssue, forEachIssueOrPullRequest, forEachPullRequest } from '@ryancavanaugh/git-csv-graphql-io/utils.js';
 import { ReportDirectory } from "@ryancavanaugh/git-csv-common"
+import * as ai from "@ryancavanaugh/git-csv-cached-ai";
+
+const Usernames = {
+    Team: ["RyanCavanaugh", "weswigham", "gabritto", "sandersn", "rbuckton", "iisaduan", "navya9singh", "jakebailey", "andrewbranch", "sheetalkamat", "ahejlsberg"]
+}
 
 function timestampToDate(s: string): string {
     return new Date(s).toLocaleDateString();
@@ -130,19 +134,18 @@ function getActivityRecordsForPr(pr: Types.PullRequest) {
                 });
                 break;
 
-            // PR stuff
-            case "BaseRefChangedEvent":
-            case "BaseRefForcePushedEvent":
-            case "HeadRefDeletedEvent":
-            case "HeadRefForcePushedEvent":
-            case "HeadRefRestoredEvent":
-            case "ReviewDismissedEvent":
-            case "ReviewRequestRemovedEvent":
-            case "ReadyForReviewEvent":
-            case "PullRequestReviewThread":
+            case "PullRequestReview":
+                result.push({
+                    actor: item.author?.login ?? "(ghost)",
+                    issueId: pr.number,
+                    pullRequest: true,
+                    activity: item.__typename,
+                    length: 0,
+                    date: new Date(item.createdAt)
+                });
                 break;
 
-            /*
+/*
             case "ReviewRequestedEvent":
                 result.push({
                     actor: item.actor?.login ?? "(ghost)",
@@ -154,16 +157,6 @@ function getActivityRecordsForPr(pr: Types.PullRequest) {
                 });
                 break;
 
-            case "PullRequestReview":
-                result.push({
-                    actor: item.author?.login ?? "(ghost)",
-                    issueId: pr.number,
-                    pullRequest: true,
-                    activity: item.__typename,
-                    length: 0,
-                    date: new Date(item.createdAt)
-                });
-                break;
 
             case "PullRequestCommit":
             case "MergedEvent":
@@ -178,6 +171,8 @@ function getActivityRecordsForPr(pr: Types.PullRequest) {
                     // date: new Date(item.node.createdAt)
                 });
                 break;
+*/
+            /*
 
             case "UnassignedEvent":
             case "MarkedAsDuplicateEvent":
@@ -208,16 +203,14 @@ function getActivityRecordsForPr(pr: Types.PullRequest) {
     return result;
 }
 
-function getActivityRecordsForIssue(issue: Types.Issue) {
-    if (issue === undefined || issue.number === undefined) return [];
-
+function getActivityRecordsForIssue(issueOrPr: Types.IssueOrPullRequest) {
     const result: ActivityRecord[] = [];
     const base = {
-        issueId: issue.number,
+        issueId: issueOrPr.number,
         pullRequest: false
     };
 
-    const edges = issue.timelineItems.nodes ?? [];
+    const edges = issueOrPr.timelineItems.nodes ?? [];
     for (const item of edges) {
         if (item === null) continue;
 
@@ -230,7 +223,7 @@ function getActivityRecordsForIssue(issue: Types.Issue) {
             case "LabeledEvent":
             case "UnlabeledEvent":
                 result.push({
-                    issueId: issue.number,
+                    issueId: issueOrPr.number,
                     pullRequest: false,
                     activity: item.__typename,
                     actor: item.actor?.login ?? "(ghost)",
@@ -241,7 +234,7 @@ function getActivityRecordsForIssue(issue: Types.Issue) {
 
             case "IssueComment":
                 result.push({
-                    issueId: issue.number,
+                    issueId: issueOrPr.number,
                     pullRequest: false,
                     activity: item.__typename,
                     actor: item.author?.login ?? "(ghost)",
@@ -256,9 +249,9 @@ function getActivityRecordsForIssue(issue: Types.Issue) {
 
     result.push(merge(base, {
         activity: 'created',
-        actor: (issue.author?.login ?? '(ghost)'),
-        date: new Date(issue.createdAt),
-        length: issue.body?.length ?? 0
+        actor: (issueOrPr.author?.login ?? '(ghost)'),
+        date: new Date(issueOrPr.createdAt),
+        length: issueOrPr.body?.length ?? 0
     }));
 
     return result;
@@ -338,29 +331,18 @@ export async function makeIssueReport() {
     issues.addColumn('Category', i => BroadCategories[bestLabel(i)] || bestLabel(i));
     issues.addColumn('Milestone', i => i.milestone ? i.milestone.title : "");
     issues.addColumn('Label', i => bestLabel(i));
+    issues.addColumn('Tone', async i => ((await ai.tryGetIssueSummary(i))?.tone.toString()) ?? "");
+    issues.addColumn('Clarity', async i => ((await ai.tryGetIssueSummary(i))?.clarity.toString()) ?? "");
+    issues.addColumn('Summary', async i => ((await ai.tryGetIssueSummary(i))?.summary)?? "");
+    issues.addColumn('Domain', async i => ((await ai.tryGetIssueSummary(i))?.domain) ?? "");
+    issues.addColumn('Severity', async i => ((await ai.tryGetIssueSummary(i))?.severity) ?? "");
     issues.addColumn('Comments', i => i.timelineItems.nodes.filter(e => e?.__typename === "IssueComment").length.toString() ?? "0");
 
     await forEachIssue("all", issue => issues.processItem(issue));
-    issues.writeToFile(path.join(ReportDirectory, "all-issues.csv"));
+    await issues.writeToFile(path.join(ReportDirectory, "all-issues.csv"));
 }
 
-/*
-async function makePullRequestReport(data: Types.PullRequest[], prefix: string) {
-    const issues = new CSV<Types.PullRequest>();
-    issues.addColumn('ID', i => i.number.toString());
-    issues.addColumn('Title', i => i.title);
-    issues.addColumn('Month Created', i => getMonthCreated(i));
-    issues.addColumn('Created Date', i => timestampToDate(i.createdAt));
-    issues.addColumn('Created By', i => i.author?.login ?? '(ghost)');
-    issues.addColumn('State', i => !i.closed ? "open" : "closed");
-    issues.addColumn('Comments', i => i.timelineItems.nodes.filter(e => e?.__typename === "IssueComment").length.toString() ?? "0");
-
-    await fs.writeFile(`${prefix}-prs.csv`, issues.generate(data).join('\r\n'), { encoding: 'utf-8' });
-}
-*/
-export async function makeActivityReport(issues: Types.Issue[], prs: Types.PullRequest[], prefix: string) {
-    const activities: ActivityRecord[] = [];
-
+export async function makeActivityReport() {
     const activity = createTable<ActivityRecord>();
     activity.addColumn('Issue ID', i => i.issueId.toString());
     activity.addColumn('Type', i => i.pullRequest ? "PR" : "Issue");
@@ -369,48 +351,28 @@ export async function makeActivityReport(issues: Types.Issue[], prs: Types.PullR
     activity.addColumn('Date', i => i.date.toLocaleDateString());
     activity.addColumn('Month', i => getMonthOfDate(i.date));
     activity.addColumn('Length', i => i.length.toString());
-    // todo: PR too
-    forEachIssue("all", issue => {
-        const activities = getActivityRecordsForIssue(issue);
+    await forEachIssue("all", item => {
+        const activities = getActivityRecordsForIssue(item);
         activities.forEach(a => activity.processItem(a));
     });
-    activity.writeToFile(path.join(ReportDirectory, "all-activity.csv"));
+    await forEachPullRequest("all", pr => {
+        const activities = getActivityRecordsForPr(pr);
+        activities.forEach(a => activity.processItem(a));
+    });
+    await activity.writeToFile(path.join(ReportDirectory, "all-activity.csv"));
 }
 
-function dateRangeByDay(start: Date, end: Date) {
-    const result: Date[] = [];
-    while (start < end) {
-        result.push(start);
-        start = new Date(+start + 1000 * 60 * 60 * 24);
-    }
-    result.push(start);
-    return result;
+export async function makePrReport() {
+    const prs = createTable<Types.PullRequest>();
+    prs.addColumn('PR ID', i => i.number.toString());
+    prs.addColumn('Title', i => i.title);
+    prs.addColumn('Month Created', i => getMonthCreated(i));
+    prs.addColumn('Assigned To', i => i.assignees.nodes[0]?.login ?? "");
+    prs.addColumn('Created Date', i => timestampToDate(i.createdAt));
+    prs.addColumn('Created By', i => i.author?.login ?? '(ghost)');
+    prs.addColumn('State', i => !i.closed ? "open" : "closed");
+    prs.addColumn('Comments', i => i.timelineItems.nodes.filter(e => e?.__typename === "IssueComment").length.toString() ?? "0");
+
+    await forEachPullRequest("all", pr => prs.processItem(pr));
+    await prs.writeToFile(path.join(ReportDirectory, "all-prs.csv"));
 }
-
-/*
-export async function runReport(dataDir: string, prefix: string) {
-    const issues: Issue[] = read(path.join(dataDir, "issue"));
-    const prs: PullRequest[] = read(path.join(dataDir, "pr"));
-
-    if (issues.length > 0) {
-        console.log("Making issue report");
-        makeIssueReport(issues, prefix);
-    }
-    if (prs.length > 0) {
-        console.log("Making PR report");
-        makePullRequestReport(prs, prefix);
-    }
-    console.log("Making activity report");
-    makeActivityReport(issues, prs, prefix);
-
-    function read(directory: string) {
-        const result: any[] = [];
-        if (fs.existsSync(directory)) {
-            for (const fn of fs.readdirSync(directory)) {
-                result.push(JSON.parse(fs.readFileSync(path.join(directory, fn), { encoding: "utf-8" })));
-            }
-        }
-        return result;
-    }
-}
-*/

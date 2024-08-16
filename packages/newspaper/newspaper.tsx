@@ -2,7 +2,7 @@ import * as React from "preact";
 import * as path from "path";
 import * as fs from "fs/promises";
 import * as ssr from "preact-render-to-string";
-import * as io from "@ryancavanaugh/git-csv-graphql-io";
+import * as io from "@ryancavanaugh/git-csv-graphql-io/index.js";
 
 const peopleToIgnore = ["typescript-bot", "RyanCavanaugh", "ghost"];
 
@@ -278,7 +278,7 @@ function Comment(props: io.IssueCommentEvent) {
 function LabelEventDisplay(props: io.TimelineItem & { __typename: "LabeledEvent" | "UnlabeledEvent" }) {
     return <div class="event">
         <span class="oneliner">
-            <Avatar user={props.actor.login} />
+            <Avatar user={props.actor?.login ?? "ghost"} />
             &nbsp;
             {props.__typename === "LabeledEvent" ? "added" : "removed"}
             &nbsp;

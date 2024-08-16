@@ -1,5 +1,15 @@
 import * as z from "zod";
 
+export const AuthorAssociation = z.union([
+    z.literal("COLLABORATOR"),
+    z.literal("CONTRIBUTOR"),
+    z.literal("FIRST_TIME_CONTRIBUTOR"),
+    z.literal("MEMBER"),
+    z.literal("MANNEQUIN"),
+    z.literal("OWNER"),
+    z.literal("NONE")
+]);
+
 export type Reactions = z.TypeOf<typeof Reactions>;
 export const Reactions = z.array(z.object({
     content: z.string(),
@@ -91,6 +101,14 @@ export const LockedEvent = z.object({
     lockReason: z.union([z.null(), z.string()])
 });
 
+export const PullRequestReview = z.object({
+    __typename: z.literal("PullRequestReview"),
+    createdAt: z.string(),
+    author: OrNull(Login),
+    authorAssociation: AuthorAssociation,
+    reviewState: z.union([z.literal("APPROVED"), z.literal("CHANGES_REQUESTED"), z.literal("COMMENTED"), z.literal("DISMISSED")])
+});
+
 export const UnlockedEvent = z.object({
     __typename: z.literal("UnlockedEvent")
 });
@@ -107,6 +125,7 @@ export const TimelineItem = z.union([
     DemilestonedEvent,
     LockedEvent,
     UnlockedEvent,
+    PullRequestReview,
     OtherEventType("MentionedEvent"),
     OtherEventType("SubscribedEvent"),
     OtherEventType("UnsubscribedEvent"),
@@ -130,7 +149,6 @@ export const TimelineItem = z.union([
     OtherEventType("BaseRefForcePushedEvent"),
     OtherEventType("BaseRefDeletedEvent"),
     OtherEventType("AutomaticBaseChangeSucceededEvent"),
-    OtherEventType("PullRequestReview"),
     OtherEventType("ConnectedEvent"),
     OtherEventType("MarkedAsDuplicateEvent"),
 ]);
@@ -168,7 +186,7 @@ export const IssueOrPullRequest = z.object({
     body: z.string(),
     closed: z.boolean(),
     locked: z.boolean(),
-    activeLockReason: z.union([z.null(), z.literal("RESOLVED"), z.literal("TOO_HEATED"), z.literal("OFF_TOPIC"), z.literal("SPAM")]),
+    activeLockReason: z.union([z.null(), z.undefined(), z.literal("RESOLVED"), z.literal("TOO_HEATED"), z.literal("OFF_TOPIC"), z.literal("SPAM")]),
     milestone: OrNull(z.object({
         id: z.string(),
         title: z.string()
@@ -180,7 +198,14 @@ export const IssueOrPullRequest = z.object({
 });
 
 export type PullRequest = z.TypeOf<typeof PullRequest>;
-export const PullRequest = IssueOrPullRequest;
+export const PullRequest = z.intersection(IssueOrPullRequest, z.object({
+    authorAssociation: AuthorAssociation,
+    merged: z.boolean(),
+    mergedAt: OrNull(z.string()),
+    mergedBy: OrNull(Login),
+    mergeable: z.union([z.literal("MERGEABLE"), z.literal("CONFLICTING"), z.literal("UNKNOWN")]),
+    isDraft: z.boolean()
+}));
 
 export type Issue = z.TypeOf<typeof Issue>;
 export const Issue = z.intersection(IssueOrPullRequest, z.object({
