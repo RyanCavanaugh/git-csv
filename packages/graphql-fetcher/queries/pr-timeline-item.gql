@@ -23,6 +23,14 @@ fragment prTimelineItem on PullRequestTimelineItems {
     createdAt
     actor { login }
   }
+  ... on ReadyForReviewEvent {
+    createdAt
+    actor { login }
+  }
+  ... on ConvertToDraftEvent {
+    createdAt
+    actor { login }
+  }
   ... on IssueComment {
     id
     author { login }

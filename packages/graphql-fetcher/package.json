@@ -8,7 +8,9 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "@ryancavanaugh/git-csv-common": "*"
+    "@ryancavanaugh/git-csv-common": "*",
+    "@ryancavanaugh/git-csv-graphql-io": "*",
+    "zod": "^3.23.8"
   },
   "keywords": [],
   "author": "",

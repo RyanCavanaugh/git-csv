@@ -113,6 +113,16 @@ export const UnlockedEvent = z.object({
     __typename: z.literal("UnlockedEvent")
 });
 
+export const ReadyForReviewEvent = z.object({
+    __typename: z.literal("ReadyForReviewEvent"),
+    createdAt: z.string()
+});
+
+export const MergedEvent = z.object({
+    __typename: z.literal("MergedEvent"),
+    createdAt: z.string()
+});
+
 export type TimelineItem = z.TypeOf<typeof TimelineItem>;
 export const TimelineItem = z.union([
     AssignedEvent,
@@ -126,6 +136,8 @@ export const TimelineItem = z.union([
     LockedEvent,
     UnlockedEvent,
     PullRequestReview,
+    ReadyForReviewEvent,
+    MergedEvent,
     OtherEventType("MentionedEvent"),
     OtherEventType("SubscribedEvent"),
     OtherEventType("UnsubscribedEvent"),
@@ -137,9 +149,7 @@ export const TimelineItem = z.union([
     OtherEventType("HeadRefForcePushedEvent"),
     OtherEventType("CommentDeletedEvent"),
     OtherEventType("ConvertToDraftEvent"),
-    OtherEventType("ReadyForReviewEvent"),
     OtherEventType("ReferencedEvent"),
-    OtherEventType("MergedEvent"),
     OtherEventType("HeadRefDeletedEvent"),
     OtherEventType("HeadRefRestoredEvent"),
     OtherEventType("CrossReferencedEvent"),

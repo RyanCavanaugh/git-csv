@@ -5,6 +5,7 @@ import { fetchSingleIssue } from "./fetch-single-issue.js";
 import { fetchSinglePr } from "./fetch-single-pr.js";
 import { join } from "path";
 import { sleepUntil } from "./utils.js";
+import type { ZodType } from "zod";
 
 export type DownloadInfo = {
     owner: string;
@@ -13,6 +14,8 @@ export type DownloadInfo = {
     targetPathName: string;
     prNames: undefined | readonly string[];
     issueNames: undefined | readonly string[];
+    schema: ZodType;
+    force?: boolean;
 }
 
 export async function downloadItems(opts: DownloadInfo) {
@@ -65,7 +68,7 @@ export async function downloadItems(opts: DownloadInfo) {
                 updatedAt = JSON.parse(extant).updatedAt;
             } catch { }
 
-            if (item.updatedAt === updatedAt) {
+            if (item.updatedAt === updatedAt && !opts.force) {
                 console.log(`${item.number} is already current`);
             } else {
                 const content = await download(owner, repoName, item.number.toString());

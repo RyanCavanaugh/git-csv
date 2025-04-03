@@ -1,4 +1,5 @@
-import { makeIssueReport, makeActivityReport } from "./make-csv.js";
+import { makeIssueReport, makeActivityReport, makePrReport } from "./make-csv.js";
 
+await makePrReport();
 await makeIssueReport();
 await makeActivityReport();

@@ -4,10 +4,23 @@ import type * as Types from "@ryancavanaugh/git-csv-graphql-io/index.js";
 import { forEachIssue, forEachIssueOrPullRequest, forEachPullRequest } from '@ryancavanaugh/git-csv-graphql-io/utils.js';
 import { ReportDirectory } from "@ryancavanaugh/git-csv-common"
 import * as ai from "@ryancavanaugh/git-csv-cached-ai";
+import assert from 'node:assert';
 
 const Usernames = {
-    Team: ["RyanCavanaugh", "weswigham", "gabritto", "sandersn", "rbuckton", "iisaduan", "navya9singh", "jakebailey", "andrewbranch", "sheetalkamat", "ahejlsberg"]
-}
+    Team: [
+        "RyanCavanaugh",
+        "weswigham",
+        "gabritto",
+        "sandersn",
+        "rbuckton",
+        "iisaduan",
+        "navya9singh",
+        "jakebailey",
+        "andrewbranch",
+        "sheetalkamat",
+        "ahejlsberg"
+    ]
+};
 
 function timestampToDate(s: string): string {
     return new Date(s).toLocaleDateString();
@@ -144,52 +157,6 @@ function getActivityRecordsForPr(pr: Types.PullRequest) {
                     date: new Date(item.createdAt)
                 });
                 break;
-
-/*
-            case "ReviewRequestedEvent":
-                result.push({
-                    actor: item.actor?.login ?? "(ghost)",
-                    issueId: pr.number,
-                    pullRequest: true,
-                    activity: item.__typename,
-                    length: 0,
-                    date: new Date(item.createdAt)
-                });
-                break;
-
-
-            case "PullRequestCommit":
-            case "MergedEvent":
-                result.push({
-                    actor: "unknown",
-                    issueId: pr.number,
-                    pullRequest: true,
-                    activity: item.__typename,
-                    length: 0,
-                    date: new Date(0)
-                    // actor: item.node.actor?.login ?? "(ghost)",
-                    // date: new Date(item.node.createdAt)
-                });
-                break;
-*/
-            /*
-
-            case "UnassignedEvent":
-            case "MarkedAsDuplicateEvent":
-            case "MentionedEvent":
-            case "ReferencedEvent":
-            case "RenamedTitleEvent":
-            case "CommentDeletedEvent":
-            case "CrossReferencedEvent":
-            case "LockedEvent":
-            case "UnlockedEvent":
-            case "SubscribedEvent":
-            case "UnsubscribedEvent":
-                break;
-
-            default:
-                return assertNever(item.__typename);
-                */
         }
     }
 
@@ -201,6 +168,50 @@ function getActivityRecordsForPr(pr: Types.PullRequest) {
     }));
 
     return result;
+}
+
+function hoursUntilFirstReview(pr: Types.PullRequest): number | undefined {
+    if (pr.isDraft) return undefined;
+
+    const start = readyTime();
+    const reviewTime = earliestReview(start);
+    if (reviewTime !== undefined) {
+        return Math.ceil((+reviewTime - +start) / (1000 * 60 * 60));
+    }
+
+    function earliestReview(since: Date): Date | undefined {
+        for (const timelineItem of pr.timelineItems.nodes) {
+            if (!timelineItem) continue;
+            if (timelineItem.__typename === "PullRequestReview") {
+                const at = new Date(timelineItem.createdAt);
+                if (at > since) {
+                    return at;
+                }
+            }
+        }
+        return undefined;
+    }
+
+    function readyTime() {
+        let result = new Date(pr.createdAt);
+        for (const timelineItem of [...pr.timelineItems.nodes].reverse()) {
+            if (timelineItem?.__typename === "ReadyForReviewEvent") {
+                result = new Date(timelineItem.createdAt);
+                break;
+            }
+        }
+        return result;
+    }
+}
+
+function hoursUntilMerged(pr: Types.PullRequest): number | undefined {
+    if (!pr.merged) return undefined;
+    const mergeEvent = pr.timelineItems.nodes.find(i => i?.__typename === "MergedEvent");
+    // probably worth asserting here...
+    if (mergeEvent == null) return undefined;
+    assert(mergeEvent.__typename === 'MergedEvent');
+
+    return Math.ceil((+(new Date(mergeEvent.createdAt)) - +(new Date(pr.createdAt))) / (60 * 60 * 1000));
 }
 
 function getActivityRecordsForIssue(issueOrPr: Types.IssueOrPullRequest) {
@@ -366,10 +377,14 @@ export async function makePrReport() {
     const prs = createTable<Types.PullRequest>();
     prs.addColumn('PR ID', i => i.number.toString());
     prs.addColumn('Title', i => i.title);
+    prs.addColumn('Is Draft', i => i.isDraft ? 'true' : 'false');
+    prs.addColumn('Is Employee', i => Usernames.Team.includes(i.author?.login!) ? 'true' : 'false');
     prs.addColumn('Month Created', i => getMonthCreated(i));
     prs.addColumn('Assigned To', i => i.assignees.nodes[0]?.login ?? "");
     prs.addColumn('Created Date', i => timestampToDate(i.createdAt));
     prs.addColumn('Created By', i => i.author?.login ?? '(ghost)');
+    prs.addColumn('Hours To First Review', i => hoursUntilFirstReview(i)?.toString() ?? "");
+    prs.addColumn('Hours Until Merged', i => hoursUntilMerged(i)?.toString() ?? "");
     prs.addColumn('State', i => !i.closed ? "open" : "closed");
     prs.addColumn('Comments', i => i.timelineItems.nodes.filter(e => e?.__typename === "IssueComment").length.toString() ?? "0");
 

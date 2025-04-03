@@ -1,4 +1,5 @@
 import { downloadItems } from "./download-items.js";
+import { Issue, PullRequest } from "@ryancavanaugh/git-csv-graphql-io/index.js";
 
 await downloadItems({
     owner: "microsoft",
@@ -6,7 +7,8 @@ await downloadItems({
     issueNames: ["issues"],
     prNames: undefined,
     queryFileName: "issues-by-date.gql",
-    targetPathName: "all"
+    targetPathName: "all",
+    schema: Issue
 });
 
 await downloadItems({
@@ -15,5 +17,6 @@ await downloadItems({
     issueNames: undefined,
     prNames: ["pullRequests"],
     queryFileName: "prs-by-date.gql",
-    targetPathName: "all"
+    targetPathName: "all",
+    schema: PullRequest
 });

@@ -1,9 +1,50 @@
+import type { Issue } from "@ryancavanaugh/git-csv-graphql-io/index.js";
 import { forEachIssue } from "@ryancavanaugh/git-csv-graphql-io/utils.js";
 
-type Action = {
-    kind: "lock",
-    reason: "super-stale"
-};
+interface ActionKinds {
+    lock: "super-stale" | "fixed-and-stale";
+    giveUp: "no-info-provided";
+}
+
+type MakeAction<K, R extends string> = { kind: K; reason: R };
+type GetActions<T extends keyof ActionKinds> = T extends unknown ? MakeAction<T, ActionKinds[T]> : never;
+type Action = GetActions<keyof ActionKinds>;
+
+function getActionForIssue(issue: Issue): Action | undefined {
+    if (issue.closed) {
+        return getActionForClosedIssue(issue);
+    } else {
+        return getActionForOpenIssue(issue);
+    }
+}
+
+function getActionForClosedIssue(issue: Issue): Action | undefined {
+    // Already locked, nothing to do
+    if (issue.locked) return;
+
+    // Not a bug
+    const isBug = issue.labels.nodes.some(n => n?.name === "Bug");
+    if (!isBug) return;
+
+    const updatedAt = new Date(issue.updatedAt);
+    const isFixed = issue.labels.nodes.some(n => n?.name === "Fixed") || issue.closedByPullRequestsReferences.nodes.length;
+    const isVeryStale = isOlderThan(updatedAt, { years: 2 });
+    const isStale = isOlderThan(updatedAt, { months: 6 });
+    if (isFixed && isStale) {
+        return { kind: "lock", reason: "fixed-and-stale" };
+    }
+    if (isVeryStale) {
+        return { kind: "lock", reason: "super-stale" };
+    }
+    return;
+}
+
+function getActionForOpenIssue(issue: Issue): Action | undefined {
+    // Dormant milestone, ignore
+    if (issue.milestone?.title === "Dormant") return;
+
+    return;
+}
 
 function isOlderThan(date: Date, obj: { years?: number, months?: number }) {
     const ms = (obj.months ?? 0) * 28 * 24 * 60 * 60 * 1000 +
@@ -13,33 +54,4 @@ function isOlderThan(date: Date, obj: { years?: number, months?: number }) {
 }
 
 forEachIssue("all", issue => {
-    // Already locked
-    if (issue.locked) return;
-
-    // Dormant milestone, ignore
-    if (issue.milestone?.title === "Dormant") return;
-
-    // Not closed
-    if (!issue.closed) return;
-
-    // Not a bug
-    const isBug = issue.labels.nodes.some(n => n?.name === "Bug");
-    if (!isBug) return;
-
-    const updatedAt = new Date(issue.updatedAt);
-
-    const isFixed = issue.labels.nodes.some(n => n?.name === "Fixed");
-
-    const isVeryStale = isOlderThan(updatedAt, { years: 2 });
-
-    const isStale = isOlderThan(updatedAt, { years: 2, months: 6 });
-    if (isVeryStale) {
-        console.log(`Lock ${issue.url} (it is extremely stale)`);
-    } else if (isFixed && isStale && !issue.locked) {
-        console.log(`Lock ${issue.url} (it is Fixed and stale)`);
-    } else if (issue.closedByPullRequestsReferences.nodes.length) {
-        console.log(`Lock ${issue.url} (addressed by ${issue.closedByPullRequestsReferences.nodes[0]?.number})`);
-    } else {
-        console.log(`Dunno, ${issue.url}`);
-    }
 });
