@@ -1,5 +1,13 @@
 Delete data\issue-index.json
 
+## Setup
+
+### Build
+
+Build: `tsc -b`
+
+### Fetch
+
 ### Commands You Can Run
 
 * Download all issues/PRs from the repo: `node packages/graphql-fetcher/dist/download-all-items.js`

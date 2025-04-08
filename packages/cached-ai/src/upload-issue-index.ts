@@ -47,7 +47,7 @@ while (lines.length > 0) {
     count++;
 }
 console.log(`Uploaded ${fileIds.length} files. Creating batch`);
-const batch = await openai.beta.vectorStores.fileBatches.create(vectorStoreId, {
+const batch = await openai.vectorStores.fileBatches.create(vectorStoreId, {
     file_ids: fileIds
 });
 console.log(`Created batch ${batch.id}`);

@@ -10,6 +10,7 @@
     "git-csv": "duplicate-finder.js"
   },
   "dependencies": {
+    "@anatine/zod-openapi": "^2.2.8",
     "@graphql-codegen/cli": "^5.0.0",
     "@graphql-codegen/typescript": "^4.0.1",
     "@playlyfe/gql": "^2.6.1",
@@ -17,10 +18,12 @@
     "@types/react-dom": "^16.8.5",
     "fs-extra": "^7.0.1",
     "io-ts": "^2.2.20",
+    "openai": "^4.91.1",
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
     "rimraf": "^3.0.0",
-    "treeage": "^0.4.0"
+    "treeage": "^0.4.0",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",

@@ -1,1 +1,1 @@
-{"root":["./src/cli.ts","./src/csv.ts","./src/make-csv.ts"],"version":"5.6.0-dev.20240718"}
+{"root":["./src/cli.ts","./src/csv.ts","./src/make-csv.ts"],"version":"5.9.0-dev.20250404"}
