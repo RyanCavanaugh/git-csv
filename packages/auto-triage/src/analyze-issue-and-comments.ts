@@ -1,6 +1,6 @@
-import OpenAI from "openai";
-import { generateSchema } from '@anatine/zod-openapi';
-import { zodTextFormat } from "openai/helpers/zod";
+import { zodToJsonSchema } from 'zod-to-json-schema';
+import { zodResponseFormat } from 'openai/helpers/zod';
+import { AzureOpenAI } from "openai";
 import z from "zod";
 import type { Issue } from "@ryancavanaugh/git-csv-graphql-io/index.js";
 import { forEachIssue } from "@ryancavanaugh/git-csv-graphql-io/utils.js";
@@ -8,15 +8,27 @@ import fs from "fs/promises";
 import path from "path";
 import type { ResponseInputItem } from "openai/resources/responses/responses.mjs";
 import { fail } from "assert";
+import { DefaultAzureCredential, getBearerTokenProvider } from "@azure/identity";
+import type { ChatCompletionMessageParam } from "openai/resources/index.mjs";
 
 const RoleLookup: Record<string, "maintainer" | "bot" | undefined> = {
     "RyanCavanaugh": "maintainer",
     "typescript-bot": "bot"
 };
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+//const apiKey = process.env.AZUREAI_API_KEY;
+
+const endpoint = "https://ryanca-aoai.openai.azure.com/";
+const modelName = "o1";
+const deployment = "o1";
+process.env.AZURE_LOG_LEVEL = "verbose";
+const credential = new DefaultAzureCredential();
+const scope = "https://cognitiveservices.azure.com/.default";
+const azureADTokenProvider = getBearerTokenProvider(credential, scope);
+const apiVersion = "2024-12-01-preview";
+const options = { endpoint, azureADTokenProvider, deployment, apiVersion }
+
+const openai = new AzureOpenAI(options);
 
 const Prompts = {
     IssueAnalysis: await fs.readFile(path.join(import.meta.dirname, "../prompts/issue-analysis.md"), "utf-8")
@@ -152,7 +164,7 @@ const exampleSummarizeOutput: z.TypeOf<typeof SummarizeOutputSchema> = {
 main();
 
 async function main() {
-    const issuePath = `D:/github/git-csv/data/all/microsoft/TypeScript/61141.json`;
+    const issuePath = `D:/github/git-csv/data/all/microsoft/TypeScript/61363.json`;
     const output = await summarizeIssue(JSON.parse(await fs.readFile(issuePath, "utf-8")));
     for (const line of output) {
         console.log(line);
@@ -193,11 +205,11 @@ async function summarizeIssue(issue: Issue): Promise<string[]> {
         }
     }
 
-    const messageSequence: ResponseInputItem[] = [{
-        "role": "developer",
+    const messageSequence: ChatCompletionMessageParam[] = [{
+        "role": "system",
         "content": [
             {
-                "type": "input_text",
+                "type": "text",
                 "text": initialPrompt
             }
         ]
@@ -264,23 +276,18 @@ async function summarizeIssue(issue: Issue): Promise<string[]> {
     }
 
     async function invokeCompletion<T extends Zod.ZodType>(responseSchema: T): Promise<Zod.TypeOf<T>> {
-        const response = await openai.responses.create({
-            model: "o3-mini-2025-01-31",
-            input: messageSequence,
-            text: {
-                "format": zodTextFormat(responseSchema, "response")
-            },
-            reasoning: {
-                "effort": "medium"
-            },
+        const response = await openai.chat.completions.create({
+            model: "o1",
+            messages: messageSequence,
+            response_format: zodResponseFormat(responseSchema, "response"),
             tools: [],
             store: false
         });
         messageSequence.push({
             "role": "assistant",
-            "content": response.output_text
+            content: response.choices[0].message.content,
         });
-        return responseSchema.parse(JSON.parse(response.output_text));
+        return responseSchema.parse(JSON.parse(response.choices[0].message.content ?? "null"));
     }
 }
 

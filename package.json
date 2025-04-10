@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@anatine/zod-openapi": "^2.2.8",
+    "@azure/identity": "^4.8.0",
     "@graphql-codegen/cli": "^5.0.0",
     "@graphql-codegen/typescript": "^4.0.1",
     "@playlyfe/gql": "^2.6.1",
@@ -18,7 +19,7 @@
     "@types/react-dom": "^16.8.5",
     "fs-extra": "^7.0.1",
     "io-ts": "^2.2.20",
-    "openai": "^4.91.1",
+    "openai": "^4.93.0",
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
     "rimraf": "^3.0.0",
@@ -36,7 +37,7 @@
   },
   "scripts": {
     "build": "tsc -b -f",
-    "fetch-all": "node packages/graphql-fetcher/dist/download-all-items.js",
+    "fetch-all": "tsc -b -f && node packages/graphql-fetcher/dist/download-all-items.js",
     "csv-report": "node packages/make-activity-reports/dist/cli.js",
     "go": "node bin/runner.js",
     "news": "tsc -b -f && node packages/graphql-fetcher/dist/download-recent-items.js && node packages/newspaper/dist/newspaper.js && start packages/newspaper/report.html"
