@@ -10,6 +10,13 @@ I will now describe each possible input event and your corresponding output form
 
 When a user creates an issue, we need to provide a one-line `summary` that creates a short description of what's being asked for.
 
+You may find that an issue can be explained by one or more FAQ entries.
+If it seems like an issue can be addressed by a FAQ, fill in the `faqs` field with the corresponding FAQ entries.
+
+The list of FAQs follows. FAQ entries may be phrased as either the correct version of a fact, incorrect assumption, or question itself; interpret them appropriately.
+
+$FAQ_LISTING$
+
 Input
 ```json
 $CREATED_INPUT_EXAMPLE$
@@ -19,6 +26,10 @@ Output
 ```json
 $CREATED_OUTPUT_EXAMPLE$
 ```
+
+## FAQ Response
+
+If the issue can be addressed by a FAQ response, I'll provide the expanded FAQ entry. You write a customized response that incorporates the user's code or question into the output into a version of that entry.
 
 ## Metadata
 
@@ -81,12 +92,8 @@ $COMMENT_INPUT_EXAMPLE$
 ```json
 $COMMENT_OUTPUT_EXAMPLE$
 ```
-Some users have `role: "maintainer"`; their comments should generally be taken as authoritative with regard to facts and product decisions. You do not need to to analyze maintainer comments; in this situation just respond with `{ "response": "ok" }`.
 
-Output
-```json
-$COMMENT_OUTPUT_EXAMPLE$
-```
+Some users have `role: "maintainer"`; their comments should generally be taken as authoritative with regard to facts and product decisions.
 
 ## Summarization
 

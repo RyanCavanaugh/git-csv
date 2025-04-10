@@ -1,1 +1,1 @@
-{"root":["./src/analyze-issue-and-comments.ts","./src/check-for-actions.ts","./src/generate-training-data.ts"],"version":"5.9.0-dev.20250404"}
+{"root":["./src/analyze-issue-and-comments.ts","./src/check-for-actions.ts","./src/faq-parser.ts","./src/generate-training-data.ts"],"version":"5.9.0-dev.20250404"}

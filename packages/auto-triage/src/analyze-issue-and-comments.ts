@@ -10,11 +10,13 @@ import type { ResponseInputItem } from "openai/resources/responses/responses.mjs
 import { fail } from "assert";
 import { DefaultAzureCredential, getBearerTokenProvider } from "@azure/identity";
 import type { ChatCompletionMessageParam } from "openai/resources/index.mjs";
+import { parseFAQs } from './faq-parser.js';
 
 const RoleLookup: Record<string, "maintainer" | "bot" | undefined> = {
     "RyanCavanaugh": "maintainer",
     "typescript-bot": "bot"
 };
+const faqs = parseFAQs(await fs.readFile(path.join(import.meta.dirname, "../prompts/FAQs.md"), "utf-8"));
 
 //const apiKey = process.env.AZUREAI_API_KEY;
 
@@ -45,10 +47,12 @@ const exampleCreatedInput: z.TypeOf<typeof CreatedInputSchema> = {
 };
 
 const CreatedOutputSchema = z.object({
-    summary: z.string()
+    summary: z.string(),
+    faqs: z.array(z.union([z.literal("none"), ...faqs.map(f => z.literal(f.title))] as any))
 });
 const exampleCreatedOutput: z.TypeOf<typeof CreatedOutputSchema> = {
-    summary: "A feature request to add XHTML comments"
+    summary: "A feature request to add XHTML comments",
+    faqs: []
 };
 
 const MetadataSchema = z.object({
@@ -161,10 +165,11 @@ const exampleSummarizeOutput: z.TypeOf<typeof SummarizeOutputSchema> = {
     }
 };
 
-main();
+// main();
+processAll();
 
 async function main() {
-    const issuePath = `D:/github/git-csv/data/all/microsoft/TypeScript/61363.json`;
+    const issuePath = `D:/github/git-csv/data/all/microsoft/TypeScript/61527.json`;
     const output = await summarizeIssue(JSON.parse(await fs.readFile(issuePath, "utf-8")));
     for (const line of output) {
         console.log(line);
@@ -173,12 +178,13 @@ async function main() {
 
 async function processAll() {
     const issues: Issue[] = []
-    forEachIssue("all", issue => {
-        if (new Date(issue.updatedAt) > (new Date("2025/04/01"))) {
+    await forEachIssue("all", issue => {
+        if (new Date(issue.createdAt) > (new Date("2025/04/01"))) {
             console.log(issue.title);
             issues.push(issue);
         }
     });
+    console.log(`Found ${issues.length} issues`);
 
     for (const issue of issues) {
         await summarizeIssue(issue);
@@ -186,6 +192,7 @@ async function processAll() {
 }
 
 async function summarizeIssue(issue: Issue): Promise<string[]> {
+    console.log(`#${issue.number} - ${issue.title}`);
     const timelineOutput: string[] = [];
 
     const replacements = {
@@ -194,8 +201,10 @@ async function summarizeIssue(issue: Issue): Promise<string[]> {
         "$METADATA_INPUT_EXAMPLE$": exampleMetadataInput,
         "$COMMENT_INPUT_EXAMPLE$": exampleCommentInput,
         "$COMMENT_OUTPUT_EXAMPLE$": exampleCommentOutput,
-        "$SUMMARIZE_OUTPUT_EXAMPLE$": exampleSummarizeOutput
+        "$SUMMARIZE_OUTPUT_EXAMPLE$": exampleSummarizeOutput,
+        "$FAQ_LISTING$": faqs.map(faq => ` * ${faq.title}: ${faq.summary}`).join("\n")
     };
+
     let initialPrompt = Prompts.IssueAnalysis;
     for (const [k, v] of Object.entries(replacements)) {
         let prev = initialPrompt;
@@ -227,45 +236,50 @@ async function summarizeIssue(issue: Issue): Promise<string[]> {
         timelineOutput.push(`### Bug #${issue.number} by ${issue.author?.login ?? "(ghost)"}\n`);
         timelineOutput.push(`Title: ${issue.title}\n`);
         timelineOutput.push(`Summary: ${output.summary}\n`);
+        timelineOutput.push(`FAQs: ${output.faqs.join(",") || "(none)"}\n`);
     }
 
-    // Timeline items
-    for (const timelineItem of issue.timelineItems.nodes) {
-        if (timelineItem?.__typename === "IssueComment") {
-            addUserMessage(CommentAnalysisInputSchema, {
-                role: RoleLookup[timelineItem.author?.login ?? ""] ?? "user",
-                username: timelineItem.author?.login ?? "ghost",
-                comment: timelineItem.body
-            });
-            const output = await invokeCompletion(CommentAnalyisOutputSchema);
-            console.log(JSON.stringify(output, undefined, 2));
+    if (0 > 1) {
 
-            timelineOutput.push(` * ${timelineItem.author?.login ?? "(ghost)"} ${output.summary}`)
-            const factors: string[] = [];
-            for (const [k, v] of Object.entries({ ...output.aspects, ...output.sentiment })) {
-                if (v > 8) factors.push(k);
+        // Timeline items
+        for (const timelineItem of issue.timelineItems.nodes) {
+            if (timelineItem?.__typename === "IssueComment") {
+                addUserMessage(CommentAnalysisInputSchema, {
+                    role: RoleLookup[timelineItem.author?.login ?? ""] ?? "user",
+                    username: timelineItem.author?.login ?? "ghost",
+                    comment: timelineItem.body
+                });
+                const output = await invokeCompletion(CommentAnalyisOutputSchema);
+                console.log(JSON.stringify(output, undefined, 2));
+
+                timelineOutput.push(` * ${timelineItem.author?.login ?? "(ghost)"} ${output.summary}`)
+                const factors: string[] = [];
+                for (const [k, v] of Object.entries({ ...output.aspects, ...output.sentiment })) {
+                    if (v > 8) factors.push(k);
+                }
+                if (factors.length > 0) {
+                    timelineOutput.push(`    * ${factors.map(f => `\`${f}\``).join(", ")}`);
+                }
+
+                // process.exit(0);
             }
-            if (factors.length > 0) {
-                timelineOutput.push(`    * ${factors.map(f => `\`${f}\``).join(", ")}`);
+        }
+
+        // Provide a summary
+        {
+            timelineOutput.push("\n");
+            addUserMessage(SummarizeInputSchema, { "generate": "summary" });
+            const output = await invokeCompletion(SummarizeOutputSchema);
+            timelineOutput.push(`Recommended Action: ${output.summary.outcome}\n`);
+            if ("why" in output.summary) {
+                timelineOutput.push(`Why: ${output.summary.why}`);
             }
-
-            // process.exit(0);
+            if ("prewrite" in output.summary) {
+                timelineOutput.push(`> ${output.summary.prewrite}`);
+            }
         }
     }
 
-    // Provide a summary
-    {
-        timelineOutput.push("\n");
-        addUserMessage(SummarizeInputSchema, { "generate": "summary" });
-        const output = await invokeCompletion(SummarizeOutputSchema);
-        timelineOutput.push(`Recommended Action: ${output.summary.outcome}\n`);
-        if ("why" in output.summary) {
-            timelineOutput.push(`Why: ${output.summary.why}`);
-        }
-        if ("prewrite" in output.summary) {
-            timelineOutput.push(`> ${output.summary.prewrite}`);
-        }
-    }
     return timelineOutput;
 
     function addUserMessage<T extends Zod.ZodType>(schema: T, obj: Zod.TypeOf<T>) {
