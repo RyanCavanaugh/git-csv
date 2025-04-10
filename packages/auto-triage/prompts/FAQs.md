@@ -29,6 +29,45 @@ See also [this Stackoverflow post](https://stackoverflow.com/a/41750391/)
 
 See the canonical issue #9998 for more on this.
 
+## reachability-is-syntactic
+
+> Reachability analysis is based on syntax, not types, so code that appears unreachable due to type effects (including function exit points) is still considered reachable
+
+Let's say you write some code like this
+```ts
+function foo(sn: string | number): boolean {
+    if (typeof sn === 'string') return true;
+    if (typeof sn === 'number') return false;
+    
+    /* this implicit return is unreachable */
+}
+```
+TypeScript considers this an error because there is no final `return` statement in this function with a `: boolean` return type annotation.
+This is because reachability analysis is (almost) always syntactic, but this code only appears to be exhaustive through type analysis.
+Even though after the second `if`, `sn` would have type `never`, TypeScript doesn't exhaustively check all in-scope variables to see if one of them has become `never` in hypothetical places where they might be referenced.
+
+There's one exception to this rule, `switch` statements, which will be analyzed to see if they are exhaustive. The function could instead be written as
+```ts
+function foo(sn: string | number): boolean {
+    switch (typeof sn) {
+        case 'string': return true;
+        case 'number': return false;
+    }
+    // Nothing else needed
+}
+```
+A alternative approach is to convert the final `if` to an assertion
+```ts
+function foo(sn: string | number): boolean {
+    if (typeof sn === 'string') return true;
+	Debug.assert(typeof sn === 'number');
+    return false;
+}
+```
+This has the added benefits of allowing you to reach 100% code coverage, and fails with an explicit error at runtime instead of returning `undefined` and causing a confusing downstream exception or data corruption in the case where an illegal argument gets passed for some reason.
+
+See also #21985
+
 ## no-cfa-in-unreachable-code
 
 > Control flow analysis is unable the effects of narrowing in unreachable code
@@ -57,13 +96,70 @@ function foo(x: number | string) {
 
 If we changed the control flow model to treat all exit points as non-final (so narrowing "survives" them), this `default` case would incorrectly think `x` could still be `number | string`. And if we just treat unreachable code as `any`, then tools like rename and refactor stop working reliably inside those blocks. So the current behavior is the least-broken option available. It's tagged as a bug mostly because it's confusing, not because there's a safe, correct fix ready to go.
 
-See the canonical issue #26914 for more on this.
+See also #26914 for more on this.
 
 ## separate-utterances-uncorrelated
 
 > TypeScript cannot make determinations about type compatibility based on observing that two uses of the same variable must (or should) have the exact same value
 
-Means what it says, I can't elaborate more right now
+This is a sort of fundamental limitation in how control flow narrowing works. Control flow can track the determinations we've made in the *type* of a *value* when it inhabits a variable or property:
+```ts
+function foo(sn: string | number) {
+    // Not safe, sn might be anumber
+    console.log(sn.toLowerCase());
+
+    if (typeof sn === "string") {
+        // In this block, we know sn is a string
+        console.log(sn.toLowerCase());
+    }
+}
+```
+
+However, control flow *can't* narrow the "type of a type", as might happen in a type parameter:
+```ts
+function foo<T extends string | number>(arg1: T, arg2: T) {
+    if (typeof arg1 === "string") {
+        // No determinations about `T` are in effect here
+        console.log(arg2.toLowerCase());
+    }
+}
+```
+This is generally a good thing since these determinations aren't sound anyway:
+```ts
+// This legal call would cause a crash because 42.toLowerCase does not exist
+foo<string | number>("hello", 42);
+```
+
+This limitation also extends to two utterances of the same identifier. Let's say we wrote something like this:
+```ts
+interface MyStruct {
+    x: string;
+    y: number;
+}
+
+function copy<K extends keyof MyStruct>(src: MyStruct, dst: MyStruct, key: K) {
+    dst[key] = src[key];
+}
+```
+This is obviously legal by construction, but TS doesn't have any logic to detect that both sides of the assignment ultimately must resolve to the same place. From TS's perspective, this function looks identical to a slightly different one:
+```ts
+interface MyStruct {
+    x: string;
+    y: number;
+}
+
+function copy<K extends keyof MyStruct>(src: MyStruct, dst: MyStruct, srcKey: K, dstKey: K) {
+    dst[dstKey] = src[srcKey];
+}
+// This legal call would corrupt someOtherStruct (bad)
+copy<"x" | "y">(someStruct, someOtherStruct, "x", "y");
+```
+You can construct other programs that appear safe if you *iterate* through all possible values a variable could have; in general TypeScript doesn't and won't perform that kind of analysis because it's combinatorially explosive to do so.
+
+See also
+ * #33014 which proposes allowing certain sound constrained forms of "type narrowing"
+ * #33912 which is a similar proposal
+ * #27808 which proposes the ability to write a generic function that can't accept union type arguments
 
 ## no-runtime-features
 

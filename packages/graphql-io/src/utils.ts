@@ -57,8 +57,14 @@ export async function forEachItemRaw(dataRootName: keyof typeof PredefinedDirect
             for (const name of fileNames) {
                 const path = join(repoRoot, name);
                 const fileContent = await readFile(path, "utf-8");
-                const json = JSON.parse(fileContent);
-                await callback(json, path);
+                let json;
+                try {
+                    json = JSON.parse(fileContent);
+
+                    await callback(json, path);
+                } catch (e: any) {
+                    console.log(`JSON parsing error on ${path}: ${e.message}`);
+                }
             }
         }
     }

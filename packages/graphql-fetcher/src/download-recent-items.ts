@@ -6,7 +6,7 @@ downloadItems({
     repoName: "TypeScript",
     issueNames: ["open_issues", "closed_issues"],
     prNames: ["open_prs", "closed_prs", "merged_prs"],
-    queryFileName: "recently-udpated.gql",
+    queryFileName: "recently-updated.gql",
     targetPathName: "recent",
     schema: IssueOrPullRequest
 });

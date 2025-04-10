@@ -33,7 +33,8 @@ const options = { endpoint, azureADTokenProvider, deployment, apiVersion }
 const openai = new AzureOpenAI(options);
 
 const Prompts = {
-    IssueAnalysis: await fs.readFile(path.join(import.meta.dirname, "../prompts/issue-analysis.md"), "utf-8")
+    IssueAnalysis: await fs.readFile(path.join(import.meta.dirname, "../prompts/issue-analysis.md"), "utf-8"),
+    FaqResponse: await fs.readFile(path.join(import.meta.dirname, "../prompts/write-faq-response.md"), "utf-8")
 };
 
 const CreatedInputSchema = z.object({
@@ -165,11 +166,16 @@ const exampleSummarizeOutput: z.TypeOf<typeof SummarizeOutputSchema> = {
     }
 };
 
-// main();
-processAll();
+const FaqOutputSchema = z.object({
+    message: z.string(),
+    confidence: z.number()
+});
+
+main();
+// processAll();
 
 async function main() {
-    const issuePath = `D:/github/git-csv/data/all/microsoft/TypeScript/61527.json`;
+    const issuePath = `D:/github/git-csv/data/recent/microsoft/TypeScript/61563.json`;
     const output = await summarizeIssue(JSON.parse(await fs.readFile(issuePath, "utf-8")));
     for (const line of output) {
         console.log(line);
@@ -178,8 +184,8 @@ async function main() {
 
 async function processAll() {
     const issues: Issue[] = []
-    await forEachIssue("all", issue => {
-        if (new Date(issue.createdAt) > (new Date("2025/04/01"))) {
+    await forEachIssue("recent", issue => {
+        if (new Date(issue.createdAt) > (new Date("2025/04/08"))) {
             console.log(issue.title);
             issues.push(issue);
         }
@@ -225,18 +231,39 @@ async function summarizeIssue(issue: Issue): Promise<string[]> {
     }];
 
     // Generate the creation summary
-    {
-        addUserMessage(CreatedInputSchema, {
-            title: issue.title,
-            body: issue.body
-        });
-        const output = await invokeCompletion(CreatedOutputSchema);
-        console.log(JSON.stringify(output, undefined, 2));
+    addUserMessage(CreatedInputSchema, {
+        title: issue.title,
+        body: issue.body
+    });
+    const output = await invokeCompletion(CreatedOutputSchema);
+    console.log(JSON.stringify(output, undefined, 2));
 
-        timelineOutput.push(`### Bug #${issue.number} by ${issue.author?.login ?? "(ghost)"}\n`);
-        timelineOutput.push(`Title: ${issue.title}\n`);
-        timelineOutput.push(`Summary: ${output.summary}\n`);
-        timelineOutput.push(`FAQs: ${output.faqs.join(",") || "(none)"}\n`);
+    timelineOutput.push(`### Bug #${issue.number} by ${issue.author?.login ?? "(ghost)"}\n`);
+    timelineOutput.push(`Title: ${issue.title}\n`);
+    timelineOutput.push(`Summary: ${output.summary}\n`);
+    timelineOutput.push(`FAQs: ${output.faqs.join(",") || "(none)"}\n`);
+
+    // FAQ response
+    if (output.faqs.length > 0) {
+        for (const f of output.faqs) {
+            const entry = faqs.filter(faq => faq.title === f)[0];
+            const messages: ChatCompletionMessageParam[] = [
+                {
+                    role: "system",
+                    content: Prompts.FaqResponse
+                },
+                {
+                    role: "user",
+                    content: JSON.stringify({
+                        issue: issue.body,
+                        faq: entry.content
+                    }, undefined, 2)
+                }
+            ];
+            const faqResponse = await getChatCompletionJsonResponse(messages, FaqOutputSchema);
+            console.log(`FAQ ${f.title} confidence: ${faqResponse.confidence}:`);
+            console.log(faqResponse.message);
+        }
     }
 
     if (0 > 1) {
@@ -306,3 +333,14 @@ async function summarizeIssue(issue: Issue): Promise<string[]> {
 }
 
 
+
+async function getChatCompletionJsonResponse<T extends Zod.ZodType>(messageSequence: ChatCompletionMessageParam[], responseSchema: T): Promise<Zod.TypeOf<T>> {
+    const response = await openai.chat.completions.create({
+        model: "o1",
+        messages: messageSequence,
+        response_format: zodResponseFormat(responseSchema, "response"),
+        tools: [],
+        store: false
+    });
+    return responseSchema.parse(JSON.parse(response.choices[0].message.content ?? "null"));
+}

@@ -38,6 +38,7 @@
   "scripts": {
     "build": "tsc -b -f",
     "fetch-all": "tsc -b -f && node packages/graphql-fetcher/dist/download-all-items.js",
+    "fetch-recent": "tsc -b -f && node packages/graphql-fetcher/dist/download-recent-items.js",
     "csv-report": "node packages/make-activity-reports/dist/cli.js",
     "go": "node bin/runner.js",
     "news": "tsc -b -f && node packages/graphql-fetcher/dist/download-recent-items.js && node packages/newspaper/dist/newspaper.js && start packages/newspaper/report.html"
