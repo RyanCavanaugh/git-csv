@@ -3,6 +3,7 @@ import * as url from 'url';
 import * as path from 'path';
 import axios from 'axios';
 import { sleep } from './utils.js';
+import { execSync } from 'child_process';
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const queriesRoot = path.join(__dirname, "../queries");
 
@@ -60,7 +61,16 @@ async function doGraphQL(definitionFileName: string, variables: object | null): 
         }
     }
     const query = lines.join("\n");
-    const token = (await fs.readFile(path.join(__dirname, "../../../../api-auth-token.txt"), { encoding: "utf-8" })).trim();
+    let token: string;
+    try {
+        token = execSync('gh auth token', { encoding: 'utf-8' }).trim();
+    } catch {
+        token = process.env.GITHUB_AUTH_TOKEN || '';
+        if (!token) {
+            console.error('Failed to retrieve GitHub token. Tried `gh auth token` and GITHUB_AUTH_TOKEN environment variable.');
+            process.exit(1);
+        }
+    }
     const url = `https://api.github.com/graphql`;
     const data = (variables === null) ? { query } : { query, variables };
 
