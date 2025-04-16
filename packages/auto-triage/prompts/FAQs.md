@@ -15,6 +15,8 @@ has a defined behavior.
 
 The purpose of TypeScript isn't to tell you when you've somehow managed to reach outside the bounds of the ES Spec (a nearly impossible feat), nor to only tell you when you've done something that will raise a runtime exception (something that most people agree doesn't happen nearly often enough in JS). TypeScript defines a normative set of behaviors that we think are generally "good" JS - fewer (but not necessarily zero) implicit coercions, fewer property accesses that result in undefined, fewer exceptions, fewer NaNs, and so on. This does mean that some behavior is on the borderline of "good" vs "not so good", and there are judgement calls involved when it comes to what TypeScript thinks is OK or not.
 
+---
+
 See also [this Stackoverflow post](https://stackoverflow.com/a/41750391/)
 
 ## void-not-undefined

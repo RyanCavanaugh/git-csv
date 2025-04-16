@@ -2,6 +2,7 @@ export interface FAQSection {
     title: string;
     summary: string; // The first line starting with '>' in the section, used as a summary
     content: string; // The remaining content of the section
+    verbatim?: string;
 }
 
 export function parseFAQs(fileContent: string): FAQSection[] {
@@ -23,8 +24,16 @@ export function parseFAQs(fileContent: string): FAQSection[] {
             if (!currentSection.summary && line.startsWith('>')) {
                 currentSection.summary = line.substring(1).trim(); // Extract summary
             } else {
-                // Otherwise, append the line to the content
-                currentSection.content += line + '\n';
+                // Otherwise, append the line to the content or verbatim section
+                if (line.trim().startsWith("---")) {
+                    currentSection.verbatim = "";
+                } else {
+                    if (currentSection.verbatim !== undefined) {
+                        currentSection.verbatim += line + '\n';
+                    } else {
+                        currentSection.content += line + '\n';
+                    }
+                }
             }
         }
     }
@@ -35,9 +44,5 @@ export function parseFAQs(fileContent: string): FAQSection[] {
     }
 
     // Trim the content of each section and return the parsed sections
-    return sections.map(section => ({
-        title: section.title,
-        summary: section.summary,
-        content: section.content.trim(),
-    }));
+    return sections;
 }
