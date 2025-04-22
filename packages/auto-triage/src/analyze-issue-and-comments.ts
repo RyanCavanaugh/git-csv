@@ -171,12 +171,8 @@ const FaqOutputSchema = z.object({
     confidence: z.number()
 });
 
-main();
-// processAll();
-
-async function main() {
-    const issuePath = `D:/github/git-csv/data/recent/microsoft/TypeScript/61563.json`;
-    const output = await summarizeIssue(JSON.parse(await fs.readFile(issuePath, "utf-8")));
+export async function processIssue(issue: Issue) {
+    const output = await summarizeIssue(issue);
     for (const line of output) {
         console.log(line);
     }
@@ -266,44 +262,41 @@ async function summarizeIssue(issue: Issue): Promise<string[]> {
         }
     }
 
-    if (0 > 1) {
+    // Timeline items
+    for (const timelineItem of issue.timelineItems.nodes) {
+        if (timelineItem?.__typename === "IssueComment") {
+            addUserMessage(CommentAnalysisInputSchema, {
+                role: RoleLookup[timelineItem.author?.login ?? ""] ?? "user",
+                username: timelineItem.author?.login ?? "ghost",
+                comment: timelineItem.body
+            });
+            const output = await invokeCompletion(CommentAnalyisOutputSchema);
+            console.log(JSON.stringify(output, undefined, 2));
 
-        // Timeline items
-        for (const timelineItem of issue.timelineItems.nodes) {
-            if (timelineItem?.__typename === "IssueComment") {
-                addUserMessage(CommentAnalysisInputSchema, {
-                    role: RoleLookup[timelineItem.author?.login ?? ""] ?? "user",
-                    username: timelineItem.author?.login ?? "ghost",
-                    comment: timelineItem.body
-                });
-                const output = await invokeCompletion(CommentAnalyisOutputSchema);
-                console.log(JSON.stringify(output, undefined, 2));
-
-                timelineOutput.push(` * ${timelineItem.author?.login ?? "(ghost)"} ${output.summary}`)
-                const factors: string[] = [];
-                for (const [k, v] of Object.entries({ ...output.aspects, ...output.sentiment })) {
-                    if (v > 8) factors.push(k);
-                }
-                if (factors.length > 0) {
-                    timelineOutput.push(`    * ${factors.map(f => `\`${f}\``).join(", ")}`);
-                }
-
-                // process.exit(0);
+            timelineOutput.push(` * ${timelineItem.author?.login ?? "(ghost)"} ${output.summary}`)
+            const factors: string[] = [];
+            for (const [k, v] of Object.entries({ ...output.aspects, ...output.sentiment })) {
+                if (v > 8) factors.push(k);
             }
+            if (factors.length > 0) {
+                timelineOutput.push(`    * ${factors.map(f => `\`${f}\``).join(", ")}`);
+            }
+
+            // process.exit(0);
         }
+    }
 
-        // Provide a summary
-        {
-            timelineOutput.push("\n");
-            addUserMessage(SummarizeInputSchema, { "generate": "summary" });
-            const output = await invokeCompletion(SummarizeOutputSchema);
-            timelineOutput.push(`Recommended Action: ${output.summary.outcome}\n`);
-            if ("why" in output.summary) {
-                timelineOutput.push(`Why: ${output.summary.why}`);
-            }
-            if ("prewrite" in output.summary) {
-                timelineOutput.push(`> ${output.summary.prewrite}`);
-            }
+    // Provide a summary
+    {
+        timelineOutput.push("\n");
+        addUserMessage(SummarizeInputSchema, { "generate": "summary" });
+        const output = await invokeCompletion(SummarizeOutputSchema);
+        timelineOutput.push(`Recommended Action: ${output.summary.outcome}\n`);
+        if ("why" in output.summary) {
+            timelineOutput.push(`Why: ${output.summary.why}`);
+        }
+        if ("prewrite" in output.summary) {
+            timelineOutput.push(`> ${output.summary.prewrite}`);
         }
     }
 
@@ -331,8 +324,6 @@ async function summarizeIssue(issue: Issue): Promise<string[]> {
         return responseSchema.parse(JSON.parse(response.choices[0].message.content ?? "null"));
     }
 }
-
-
 
 async function getChatCompletionJsonResponse<T extends Zod.ZodType>(messageSequence: ChatCompletionMessageParam[], responseSchema: T): Promise<Zod.TypeOf<T>> {
     const response = await openai.chat.completions.create({

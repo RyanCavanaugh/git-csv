@@ -23,11 +23,36 @@ See also [this Stackoverflow post](https://stackoverflow.com/a/41750391/)
 
 > `void` and `undefined` mean the same thing, so should act identically
 
-`void` is not an alias for `undefined`. They are different types for different situations, and they fact that they behave differently is therefore intentional. See [this StackOverflow post](https://stackoverflow.com/questions/58885485/why-does-typescript-have-both-void-and-undefined/58885486#58885486)
+`void` is not an alias for `undefined`. They are different types for different situations, and they fact that they behave differently is therefore intentional.
+
+---
+
+See also [this StackOverflow post](https://stackoverflow.com/questions/58885485/why-does-typescript-have-both-void-and-undefined/58885486#58885486)
 
 ## no-callback-cfa
 
 > Control flow analysis doesn't incorporate indirect effects of function calls
+
+Mutations, e.g. changes to local variables, aren't tracked across function calls. For example, if you write code like this
+```ts
+function foo() {
+    let m: string | number = "hello world!";
+
+    mutateM();
+
+    if (m === 42) {
+        // TypeScript thinks this is impossible because
+        // the change to 'm' in 'mutateM' is not analyzed
+        // as a result of the call to mutateM (direct or indirect)
+    }
+
+    function mutateM() {
+        m = 42;
+    }
+}
+```
+
+---
 
 See the canonical issue #9998 for more on this.
 
@@ -68,6 +93,8 @@ function foo(sn: string | number): boolean {
 ```
 This has the added benefits of allowing you to reach 100% code coverage, and fails with an explicit error at runtime instead of returning `undefined` and causing a confusing downstream exception or data corruption in the case where an illegal argument gets passed for some reason.
 
+---
+
 See also #21985
 
 ## no-cfa-in-unreachable-code
@@ -97,6 +124,8 @@ function foo(x: number | string) {
 ```
 
 If we changed the control flow model to treat all exit points as non-final (so narrowing "survives" them), this `default` case would incorrectly think `x` could still be `number | string`. And if we just treat unreachable code as `any`, then tools like rename and refactor stop working reliably inside those blocks. So the current behavior is the least-broken option available. It's tagged as a bug mostly because it's confusing, not because there's a safe, correct fix ready to go.
+
+---
 
 See also #26914 for more on this.
 
@@ -158,6 +187,8 @@ copy<"x" | "y">(someStruct, someOtherStruct, "x", "y");
 ```
 You can construct other programs that appear safe if you *iterate* through all possible values a variable could have; in general TypeScript doesn't and won't perform that kind of analysis because it's combinatorially explosive to do so.
 
+---
+
 See also
  * #33014 which proposes allowing certain sound constrained forms of "type narrowing"
  * #33912 which is a similar proposal
@@ -167,7 +198,11 @@ See also
 
 > It is contrary to TypeScript's design goals to add new runtime syntax, i.e. features that transpile or downlevel into new JS code. All suggestions proposing this are automatically rejected.
 
-We do not accept suggestions for new runtime features.
+We do not accept suggestions for new runtime features. "Runtime" means anything that isn't strictly erasable syntax. All new syntax added to TypeScript must be only in the type domain; anything that would generate new JavaScript code, or require new libaries to be present, is not considered an in-scope suggestion for TypeScript.
+
+Prior runtime additions like `enum`, class constructor properties, and `namespace` statement blocks are examples of prior TypeScript features that violate this rule and would not be added today.
+
+This rule is strictly enforced.
 
 ## no-type-system-effects
 
@@ -175,3 +210,66 @@ We do not accept suggestions for new runtime features.
 
 TODO: Write me.
 
+---
+
+## distributive-conditionals
+
+> Some conditional types are distributive, which means that `never` as an input will always yield `never` as an output, and union inputs will generally produce union outputs
+
+When conditional types act on a generic type, they become distributive when given a union type. For example, take the following:
+
+```ts
+type ToArray<Type> = Type extends any ? Type[] : never;
+```
+
+If we plug a union type into ToArray, then the conditional type will be applied to each member of that union.
+```ts
+type ToArray<Type> = Type extends any ? Type[] : never;
+ 
+type StrArrOrNumArr = ToArray<string | number>;
+           
+type StrArrOrNumArr = string[] | number[]
+```
+
+What happens here is that ToArray distributes on:
+```
+  string | number;
+```
+and maps over each member type of the union, to what is effectively:
+```
+  ToArray<string> | ToArray<number>;
+```
+which leaves us with:
+
+```
+  string[] | number[];
+```
+
+Typically, distributivity is the desired behavior. To avoid that behavior, you can surround each side of the extends keyword with square brackets.
+
+```ts
+
+type ToArrayNonDist<Type> = [Type] extends [any] ? Type[] : never;
+ 
+// 'ArrOfStrOrNum' is no longer a union.
+type ArrOfStrOrNum = ToArrayNonDist<string | number>;
+          
+type ArrOfStrOrNum = (string | number)[];
+```
+
+Note that `never` is effectively the empty union, and accordingly distributes to `never`:
+```ts
+type IsString<T> = T extends string ? "yes" : "no";
+
+type S = IsString<string>;
+// "yes"
+
+type SB = IsString<string | boolean>;
+// "yes" | "no"
+
+type N = IsString<never>
+// never
+```
+
+---
+See also [the TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#distributive-conditional-types)
