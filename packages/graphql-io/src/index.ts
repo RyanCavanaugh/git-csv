@@ -161,6 +161,7 @@ export const TimelineItem = z.union([
     OtherEventType("AutomaticBaseChangeSucceededEvent"),
     OtherEventType("ConnectedEvent"),
     OtherEventType("MarkedAsDuplicateEvent"),
+    OtherEventType("PullRequestRevisionMarker"),
 ]);
 
 /*

@@ -3,50 +3,55 @@ import { join } from "node:path";
 import { readdir, readFile } from "node:fs/promises";
 import { PredefinedDirectories } from "@ryancavanaugh/git-csv-common";
 
-export async function forEachIssue(dataRootName: keyof typeof PredefinedDirectories, callback: (item: Issue, fileName: string) => unknown) {
-    await forEachItemRaw(dataRootName, async (json, fileName) => {
+export async function forEachIssue(dataRootName: keyof typeof PredefinedDirectories, callback: (item: Issue, info: ItemCallbackInfo) => unknown) {
+    await forEachItemRaw(dataRootName, async (json, info) => {
         const url = (json as any).url;
         if (url.indexOf("/issues") !== -1) {
             try {
                 const issue = Issue.parse(json);
-                await callback(issue, fileName);
+                await callback(issue, info);
             } catch (e) {
-                console.log(`Error parsing ${fileName}`);
+                console.log(`Error parsing ${info.path}`);
                 console.log(e);
             }
         }
     });
 }
 
-export async function forEachPullRequest(dataRootName: keyof typeof PredefinedDirectories, callback: (item: PullRequest, fileName: string) => unknown) {
-    await forEachItemRaw(dataRootName, async (json, fileName) => {
+export async function forEachPullRequest(dataRootName: keyof typeof PredefinedDirectories, callback: (item: PullRequest, info: ItemCallbackInfo) => unknown) {
+    await forEachItemRaw(dataRootName, async (json, info) => {
         const url = (json as any).url;
         if (url.indexOf("/issues") === -1) {
             try {
                 const pr = PullRequest.parse(json);
-                await callback(pr, fileName);
+                await callback(pr, info);
             } catch (e) {
-                console.log(`Error parsing ${fileName}`);
+                console.log(`Error parsing ${info.path}`);
                 console.log(e);
             }
         }
     });
 }
 
-export async function forEachIssueOrPullRequest(dataRootName: keyof typeof PredefinedDirectories, callback: (item: IssueOrPullRequest, fileName: string) => unknown) {
-    await forEachItemRaw(dataRootName, async (json, fileName) => {
+export async function forEachIssueOrPullRequest(dataRootName: keyof typeof PredefinedDirectories, callback: (item: IssueOrPullRequest, info: ItemCallbackInfo) => unknown) {
+    await forEachItemRaw(dataRootName, async (json, info) => {
         try {
             const item = IssueOrPullRequest.parse(json);
-            await callback(item, fileName);
+            await callback(item, info);
         } catch (e) {
-            console.log(`Error parsing ${fileName}`);
+            console.log(`Error parsing ${info.path}`);
             console.log(e);
         }
     });
 }
 
+export interface ItemCallbackInfo {
+    repo: string;
+    owner: string;
+    path: string;
+}
 
-export async function forEachItemRaw(dataRootName: keyof typeof PredefinedDirectories, callback: (item: object, fileName: string) => unknown) {
+export async function forEachItemRaw(dataRootName: keyof typeof PredefinedDirectories, callback: (item: object, info: ItemCallbackInfo) => unknown) {
     const root = PredefinedDirectories[dataRootName];
     const ownerNames = await readdir(root);
     for (const ownerName of ownerNames) {
@@ -61,7 +66,7 @@ export async function forEachItemRaw(dataRootName: keyof typeof PredefinedDirect
                 try {
                     json = JSON.parse(fileContent);
 
-                    await callback(json, path);
+                    await callback(json, { repo: repoName, owner: ownerName, path });
                 } catch (e: any) {
                     console.log(`JSON parsing error on ${path}: ${e.message}`);
                 }

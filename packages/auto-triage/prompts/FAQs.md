@@ -2,6 +2,8 @@
 
 > TypeScript issues an error here but should actually issue a warning instead of an error
 
+TypeScript does not have separate concepts of warning and error.
+
 ## spec-is-not-good
 
 > TypeScript issues an error on this code, but it's legal according to the javascript specification, so it should not be an error
@@ -203,6 +205,64 @@ We do not accept suggestions for new runtime features. "Runtime" means anything 
 Prior runtime additions like `enum`, class constructor properties, and `namespace` statement blocks are examples of prior TypeScript features that violate this rule and would not be added today.
 
 This rule is strictly enforced.
+
+## type-guards-exhaustive
+
+> Type guards, AKA user-defined type predicates, such as `function isString(s: any): s is string` *must* return `true` for any value in their tested domain. This has implications on correctly writing them, as well as where they can correctly be used (e.g. functions where not all values in the domain produce `true`)
+
+Type guards, also known as user-defined type predicates, are functions that narrow the type of a value based on a condition. For example:
+
+```ts
+function isString(s: any): s is string {
+    return typeof s === "string";
+}
+```
+
+These functions must return `true` for any value in their tested domain. This means that if a type guard claims a value is of a certain type, it must be correct for all possible inputs. Incorrectly written type guards can lead to unsafe behavior in TypeScript.
+
+To reiterate, a type guard must ensure that it only returns `true` when the value truly matches the specified type. For example:
+```ts
+function isNumber(n: any): n is number {
+    return typeof n === "number";
+}
+```
+
+This is an intentional aspect of type guards, because requiring that they are exhaustive allows them to provide useful narrowing in the cases where they return `false`. For example:
+```ts
+function processValue(value: string | number) {
+    if (isString(value)) {
+        console.log(value.toUpperCase()); // Safe, value is a string
+    } else {
+        console.log(value.toFixed(2)); // Safe, value is a number
+    }
+}
+```
+If we instead replacd `isString` with something like `isLowercaseString` that returned `false` for `"HELLO"`, then `processValue("WORLD")` would crash.
+
+The exhaustiveness principle, while useful for negative narrowing, implies that certain functions that look like they might be type guards actually can't be:
+```ts
+// Array.includes is not a type guard, because it would cause this code to behave incorrectly
+function foo(sn: string | number) {
+    const evenNumbers: number[] = [0, 2, 4, 6, 8];
+    if (evenNumbers.includes(sn)) {
+        // While it is safe to assume sn is a number here, ...
+    } else {
+        // it is *not* safe to assume it's a string here
+    }
+}
+```
+The same applies to many other standard library functions. If you want to discard this safety in your own project, you can write a local declaration merge to add those overloads (understanding that this *will* cause incorrect results in some situations).
+
+To recap:
+
+- Write type guards that are specific and accurate for the intended type.
+- Use type guards in combination with control flow constructs like `if` or `switch` to ensure exhaustive handling of all possible cases.
+- Test type guards thoroughly to ensure they behave correctly for all inputs.
+
+For more information, see the [TypeScript Handbook on Type Guards](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#using-type-predicates).
+
+---
+See also #15048 for a proposal "one-sided" type guards which would not behave this way
 
 ## no-type-system-effects
 

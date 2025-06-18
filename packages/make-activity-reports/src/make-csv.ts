@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import { createTable } from './csv.js';
 import type * as Types from "@ryancavanaugh/git-csv-graphql-io/index.js";
-import { forEachIssue, forEachIssueOrPullRequest, forEachPullRequest } from '@ryancavanaugh/git-csv-graphql-io/utils.js';
+import { forEachIssue, forEachIssueOrPullRequest, forEachPullRequest, type ItemCallbackInfo } from '@ryancavanaugh/git-csv-graphql-io/utils.js';
 import { ReportDirectory } from "@ryancavanaugh/git-csv-common"
 import * as ai from "@ryancavanaugh/git-csv-cached-ai";
 import assert from 'node:assert';
@@ -327,8 +327,14 @@ function getMonthOfDate(date: Date): string {
     return `${date.getFullYear()}-${("0" + (1 + date.getMonth())).slice(-2)}`
 }
 
+function getRepoOfUrl(url: string) {
+    const match = url.match(/https:\/\/github\.com\/([^/]+\/[^/]+)/);
+    return match ? match[1] : "";
+}
+
 export async function makeIssueReport() {
     const issues = createTable<Types.Issue>();
+    issues.addColumn('Repo', i => getRepoOfUrl(i.url));
     issues.addColumn('Issue ID', i => i.number.toString());
     issues.addColumn('Title', i => i.title);
     issues.addColumn('Month Created', i => getMonthCreated(i));
@@ -354,7 +360,8 @@ export async function makeIssueReport() {
 }
 
 export async function makeActivityReport() {
-    const activity = createTable<ActivityRecord>();
+    const activity = createTable<ActivityRecord & { info: ItemCallbackInfo }>();
+    activity.addColumn('Repo', i => `${i.info.owner}/${i.info.repo}`);
     activity.addColumn('Issue ID', i => i.issueId.toString());
     activity.addColumn('Type', i => i.pullRequest ? "PR" : "Issue");
     activity.addColumn('Activity', i => i.activity || "?");
@@ -362,19 +369,20 @@ export async function makeActivityReport() {
     activity.addColumn('Date', i => i.date.toLocaleDateString());
     activity.addColumn('Month', i => getMonthOfDate(i.date));
     activity.addColumn('Length', i => i.length.toString());
-    await forEachIssue("all", item => {
+    await forEachIssue("all", (item, info) => {
         const activities = getActivityRecordsForIssue(item);
-        activities.forEach(a => activity.processItem(a));
+        activities.forEach(a => activity.processItem({ ...a, info } ));
     });
-    await forEachPullRequest("all", pr => {
+    await forEachPullRequest("all", (pr, info) => {
         const activities = getActivityRecordsForPr(pr);
-        activities.forEach(a => activity.processItem(a));
+        activities.forEach(a => activity.processItem({ ...a, info }));
     });
     await activity.writeToFile(path.join(ReportDirectory, "all-activity.csv"));
 }
 
 export async function makePrReport() {
     const prs = createTable<Types.PullRequest>();
+    prs.addColumn('Repo', i => getRepoOfUrl(i.url));
     prs.addColumn('PR ID', i => i.number.toString());
     prs.addColumn('Title', i => i.title);
     prs.addColumn('Is Draft', i => i.isDraft ? 'true' : 'false');

@@ -20,3 +20,23 @@ await downloadItems({
     targetPathName: "all",
     schema: PullRequest
 });
+
+await downloadItems({
+    owner: "microsoft",
+    repoName: "TypeScript-go",
+    issueNames: ["issues"],
+    prNames: undefined,
+    queryFileName: "issues-by-date.gql",
+    targetPathName: "all",
+    schema: Issue
+});
+
+await downloadItems({
+    owner: "microsoft",
+    repoName: "TypeScript-go",
+    issueNames: undefined,
+    prNames: ["pullRequests"],
+    queryFileName: "prs-by-date.gql",
+    targetPathName: "all",
+    schema: PullRequest
+});

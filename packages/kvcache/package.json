@@ -1,0 +1,10 @@
+{
+  "name": "kvcache",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "description": "Simple async key-value cache with no expiration, using SHA256-hashed keys and JSON values.",
+  "author": "",
+  "license": "MIT"
+}
