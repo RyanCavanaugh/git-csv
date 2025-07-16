@@ -38,6 +38,7 @@
   },
   "scripts": {
     "build": "tsc -b -f",
+    "analyze": "tsc -b -f && node packages/auto-triage/dist/cli.js",
     "fetch-all": "tsc -b -f && node packages/graphql-fetcher/dist/download-all-items.js",
     "fetch-recent": "tsc -b -f && node packages/graphql-fetcher/dist/download-recent-items.js",
     "csv-report": "node packages/make-activity-reports/dist/cli.js",

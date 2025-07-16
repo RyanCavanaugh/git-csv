@@ -206,6 +206,7 @@ Prior runtime additions like `enum`, class constructor properties, and `namespac
 
 This rule is strictly enforced.
 
+<<<<<<< HEAD
 ## type-guards-exhaustive
 
 > Type guards, AKA user-defined type predicates, such as `function isString(s: any): s is string` *must* return `true` for any value in their tested domain. This has implications on correctly writing them, as well as where they can correctly be used (e.g. functions where not all values in the domain produce `true`)
@@ -263,6 +264,95 @@ For more information, see the [TypeScript Handbook on Type Guards](https://www.t
 
 ---
 See also #15048 for a proposal "one-sided" type guards which would not behave this way
+=======
+## async-function-promise-return-type
+
+> Why do I have to write `async function foo(): Promise<string>` instead of just `async function foo(): string` ? The `Promise<>` part should be inferred
+
+While the idea of wrapping return type annotations in `Promise<>` is appealing in simple cases, this would create very confusing inconsistencies when thinking about more complex cases.
+
+Let's say you write some types with these intended semantics:
+```ts
+// Functions can either synchronously return a string,
+// or asynchronously return a number
+type SomeReturn = string | Promise<number>;
+type SomeFunc = () => SomeReturn;
+function callSomeFunc(func: SomeFunc) {
+    // ...
+}
+```
+
+In another part of your code, you consume this in a sync function:
+```ts
+function myFunc(): SomeReturn {
+    return "hello world"; // OK
+    // return 42; <- invalid
+}
+// OK, myFunc is a legal () => SomeReturn
+callSomeFunc(myFunc);
+```
+So far so good.
+
+Elsewhere, let's use this type in an async context:
+```ts
+async function myAsyncFunc(): SomeReturn {
+    return "hello world";
+}
+```
+At this point, we are faced with a question as to what wrapping here means. The definition of `SomeReturn` we wrote above says that this function should have a type error (this function must `return` a `number` which will become a `Promise<number>` in the caller).
+
+The "you should obviously just wrap this, stop making things so difficult" interpretation is that this function means:
+```ts
+async function myAsyncFunc(): Promise<SomeReturn> {
+```
+
+Under this interpretation, we have a problem, because the function is accepted as valid, but can't be used as a `() => SomeReturn`:
+```ts
+// Illegal, myAsyncFunction can return a Promise<string>, but
+// that's not a legal return for a SomeFunc
+callSomeFunc(myAsyncFunction);
+```
+This is now extremely confusing. You wrote a function with an explicit `SomeReturn` return type, but can't use it where a `SomeReturn`-returning function is required!
+
+You can imagine a dozen different rules to try to patch this up, but all of them create varying inconsistencies where you can't reliably predict what the return type annotation of an `async` function *means* without some deeper reasoning, and most of them create even worse problems.
+
+FOr example, let's say we had the ad hoc rule "Only wrap with `Promise<>` if `Promise` isn't already in the return type", e.g. you can write
+```ts
+async function foo(): string | Promise<number> {
+    return 42; // <- valid
+    // return "hello"; <- not valid
+}
+```
+Then let's change `foo` to be generic:
+```ts
+async function foo<T>(x: T): T {
+    return x;
+}
+```
+
+and call it
+```ts
+function indirect(x: string | Promise<number>) {
+    const p = foo(x);
+}
+```
+At this point, we have two interpretations available as to what meaning `foo` has here:
+```ts
+// Option 1: `T` got wrapped with Promise "earlier" in the process `foo` is:
+async function foo(x: string | Promise<number>): Promise<string | Promise<number>>
+```
+*or*
+```ts
+// Option 2: generic instantiation acts like textual replacement, so `foo` is:
+async function foo(x: string | Promise<number>): string | Promise<number>
+```
+
+Option 1 is confusing because, in virtually all other ways, generic instantiation *does* work like a lexical replacement of the type parameter with the type arguments. Making a special carve-out here that you have to remember is inconsistent and surprising.
+
+Option 2 is bad because it's wrong: `foo()` *can* return a `Promise<string>`.
+
+So overall while it be a little inconvenient to write `Promise<>` around return types in `async` functions, doing so is actually very important in terms of creating consistency and predictability in the language.
+>>>>>>> c7d8287e4b8775ae76a8f8bc17280b5ebfbaaf91
 
 ## no-type-system-effects
 
